@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grand Prix · Setup</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap { max-width: 1150px; margin: 0 auto; padding: 22px 20px 60px; display: flex; flex-direction: column; gap: 18px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header .brand { font-size: 22px; }
+  .spacer { flex: 1; }
+  .two { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+  .panel { padding: 20px; }
+  h3 { margin: 0 0 6px; font-size: 17px; }
+  .help { color: var(--muted); font-weight: 700; font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  textarea.input { min-height: 300px; resize: vertical; font-size: 16px; line-height: 1.6; font-family: 'Exo 2', system-ui, sans-serif; }
+  .logos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .logos { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important; }
+  .lg { border-radius: 14px; border: 1px solid var(--line); background: #0d0e12; overflow: hidden; display: flex; flex-direction: column; }
+  .lg .img { position: relative; height: 130px; background: radial-gradient(circle, #fff, #dde1e7); display: grid; place-items: center; padding: 12px; cursor: pointer; }
+  .lg .img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .lg .img.over { outline: 3px solid var(--red); outline-offset: -3px; }
+  .lg .img .drop { position: absolute; inset: auto 8px 8px; text-align: center; font-size: 11px; font-weight: 800; color: #444a57; background: rgba(255,255,255,.85); border-radius: 8px; padding: 3px; }
+  .lg .img input { display: none; }
+  .lg .num { position: absolute; left: 8px; top: 6px; font-family: var(--display); font-weight: 900; font-size: 13px; color: #444a57; }
+  .lg .meta { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .lg .meta .input { padding: 8px 10px; font-size: 14px; border-radius: 10px; }
+  .lg .row2 { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .lg .st { font-size: 12px; font-weight: 800; }
+  .lg .ok { color: var(--green); } .lg .bad { color: #ff7b7b; } .lg .busy { color: var(--amber); }
+  .lg .lnk { font-size: 12px; color: var(--muted); text-decoration: underline; font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { padding: 5px 10px; border-radius: 99px; background: #15171d; border: 1px solid var(--line); font-weight: 800; font-size: 13px; }
+  code { background: #15171d; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+  #login { max-width: 400px; margin: 18vh auto 0; display: flex; flex-direction: column; gap: 14px; text-align: center; padding: 30px; }
+</style>
+</head>
+<body>
+<form id="login" class="hidden panel redline">
+  <div class="brand" style="justify-content:center;font-size:24px"><span class="flag"></span><span>GRAND <span class="gp">PRIX</span></span></div>
+  <div class="kicker" style="text-align:center">Setup</div>
+  <input id="pin" class="input center" inputmode="numeric" placeholder="Host PIN" autocomplete="off">
+  <div class="error" id="loginErr"></div>
+  <button class="btn" type="submit">Open setup</button>
+</form>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div class="brand"><span class="flag"></span><span>GRAND <span class="gp">PRIX</span></span></div>
+    <span class="kicker">Setup</span>
+    <div class="spacer"></div>
+    <a class="btn small" href="/host.html">Race control →</a>
+  </header>
+  <div class="two">
+    <form class="panel redline" id="rosterForm">
+      <h3>👥 Player list</h3>
+      <p class="help">One name per line. These appear in the join dropdown. Anyone missing can still use “My name isn’t here”.</p>
+      <textarea class="input" id="roster"></textarea>
+      <div class="error" id="rosterMsg" style="margin-top:8px"></div>
+      <button class="btn" type="submit">Save list</button>
+    </form>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="panel">
+        <h3>🏷️ Round 1 · Logos</h3>
+        <p class="help"><b>Tap or drop an image on each slot</b> to upload it. It’s saved in the game’s database right away, with no GitHub upload or redeploy needed. Use logo versions <b>without the brand name</b> written on them. Edit the car name and accepted short forms below each logo; small typos are accepted automatically.</p>
+        <div class="logos" id="logos"></div>
+      </div>
+      <div class="panel">
+        <h3>🔧 Round 2 · Parts</h3>
+        <p class="help" id="partsHelp"></p>
+        <div class="chips" id="parts"></div>
+      </div>
+      <div class="panel">
+        <h3>🎬 Round 3 · Movie</h3>
+        <p class="help">Its letters are shuffled into cubes. Change it in <code>lib/content.js</code>.</p>
+        <div class="chips"><span id="movie"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { esc } = GP;
+const PIN_KEY = 'gp.pin';
+let pin = null; try { pin = localStorage.getItem(PIN_KEY); } catch {}
+const api = (path, opts = {}) => GP.api(path, { ...opts, headers: { 'x-host-pin': pin || '' } });
+
+async function open() {
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const [r, c] = await Promise.all([api('/api/admin/roster'), api('/api/admin/content')]);
+  $('roster').value = r.names.join('\n');
+  renderLogos(c.logos);
+  $('partsHelp').textContent = `Each race hides ${c.partsPerGame} of these ${c.parts.length} parts in a fresh 9×9 grid.`;
+  $('parts').innerHTML = c.parts.map((p) => `<span>${esc(p)}</span>`).join('');
+  $('movie').textContent = c.movie;
+}
+// ---------- logo slots ----------
+function renderLogos(logos) {
+  $('logos').innerHTML = logos.map((l) => `<div class="lg" data-n="${l.n}">
+    <label class="img"><span class="num">#${l.n}</span><img src="${l.image}" alt=""><span class="drop">${l.uploaded ? '↻ Replace image' : '⬆ Tap or drop logo'}</span><input type="file" accept="image/*"></label>
+    <div class="meta">
+      <input class="input ans" value="${esc(l.answer)}" placeholder="Car brand" maxlength="40">
+      <input class="input ali" value="${esc((l.aliases || []).join(', '))}" placeholder="Also accept (e.g. VW)" maxlength="80">
+      <div class="row2"><span class="st ${l.uploaded ? 'ok' : 'bad'}">${l.uploaded ? 'Logo uploaded ✓' : 'Placeholder: upload a logo'}</span>${l.uploaded ? '<button type="button" class="lnk clear">Remove</button>' : ''}</div>
+    </div></div>`).join('');
+}
+async function shrink(file) {
+  // resize on the device so uploads are tiny and fast (max 360px, keeps transparency)
+  if (file.type === 'image/svg+xml') return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+  const url = URL.createObjectURL(file);
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not read that image')); i.src = url; });
+  const scale = Math.min(1, 360 / Math.max(img.naturalWidth, img.naturalHeight));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(img.naturalWidth * scale)); cv.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+  URL.revokeObjectURL(url);
+  let out = cv.toDataURL('image/webp', 0.9);
+  if (!out.startsWith('data:image/webp')) out = cv.toDataURL('image/png');
+  return out;
+}
+async function saveLogo(card, body) {
+  const st = card.querySelector('.st');
+  st.className = 'st busy'; st.textContent = 'Saving…';
+  try {
+    const r = await api('/api/admin/logo/' + card.dataset.n, { method: 'PUT', body });
+    const c = await api('/api/admin/content'); renderLogos(c.logos);
+    GP.toast(`✅ Logo #${r.n} saved`, 'green', 1600);
+  } catch (err) { st.className = 'st bad'; st.textContent = err.message; }
+}
+async function upload(card, file) {
+  if (!file || !file.type.startsWith('image/')) return GP.toast('Please choose an image file', 'red');
+  try { await saveLogo(card, { image: await shrink(file) }); } catch (err) { GP.toast(esc(err.message), 'red'); }
+}
+$('logos').addEventListener('change', (e) => { if (e.target.type === 'file') upload(e.target.closest('.lg'), e.target.files[0]); });
+$('logos').addEventListener('dragover', (e) => { const z = e.target.closest('.img'); if (z) { e.preventDefault(); z.classList.add('over'); } });
+$('logos').addEventListener('dragleave', (e) => { const z = e.target.closest('.img'); if (z) z.classList.remove('over'); });
+$('logos').addEventListener('drop', (e) => { const z = e.target.closest('.img'); if (!z) return; e.preventDefault(); z.classList.remove('over'); upload(z.closest('.lg'), e.dataTransfer.files[0]); });
+$('logos').addEventListener('change', (e) => {
+  if (!e.target.classList.contains('ans') && !e.target.classList.contains('ali')) return;
+  const card = e.target.closest('.lg');
+  saveLogo(card, { answer: card.querySelector('.ans').value, aliases: card.querySelector('.ali').value });
+});
+$('logos').addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('clear')) return;
+  const card = e.target.closest('.lg');
+  if (await GP.ask('Remove this logo?', 'It goes back to the numbered placeholder.', 'Remove')) saveLogo(card, { clearImage: true });
+});
+
+$('rosterForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try { const r = await api('/api/admin/roster', { method: 'PUT', body: { text: $('roster').value } }); $('roster').value = r.names.join('\n'); GP.toast(`✅ Saved ${r.names.length} names`, 'green'); }
+  catch (err) { $('rosterMsg').textContent = err.message; }
+});
+$('login').addEventListener('submit', async (e) => {
+  e.preventDefault(); pin = $('pin').value.trim();
+  try { await api('/api/host/login', { method: 'POST', body: {} }); try { localStorage.setItem(PIN_KEY, pin); } catch {} open(); }
+  catch (err) { $('loginErr').textContent = err.message; }
+});
+if (pin) api('/api/host/login', { method: 'POST', body: {} }).then(open).catch(() => $('login').classList.remove('hidden'));
+else $('login').classList.remove('hidden');
+</script>
+</body>
+</html>

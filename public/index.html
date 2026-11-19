@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07080b">
+<title>Grand Prix</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23111'/><path d='M20 20h20v20H20zM60 20h20v20H60zM40 40h20v20H40zM20 60h20v20H20zM60 60h20v20H60z' fill='%23fff'/></svg>">
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overscroll-behavior: none; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100svh; padding: max(14px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+  .screen { flex: 1; display: flex; flex-direction: column; }
+  .mute { position: fixed; right: 14px; top: max(12px, env(safe-area-inset-top)); z-index: 60; width: 40px; height: 40px; border-radius: 50%; background: rgba(16,22,33,.7); box-shadow: inset 0 0 0 1px var(--edge-hi); font-size: 17px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+  /* ===== join ===== */
+  #join { gap: 16px; padding-bottom: 24px; }
+  .hero { padding: 26px 4px 6px; }
+  .hero .brand { font-size: min(40px, 10vw); }
+  .hero .sub { color: #c9d2e0; font-size: 17px; line-height: 1.45; margin: 10px 0 0; max-width: 32ch; }
+  .hero .road { margin-top: 18px; }
+  .join-card { padding: 22px 20px; display: flex; flex-direction: column; gap: 18px; }
+  .join-card h3 { margin: 0; font-size: 24px; }
+  .lbl { display: block; font-size: 15px; font-weight: 700; color: var(--flood); margin: 0 0 8px 2px; }
+  .me-pick { display: flex; align-items: center; gap: 16px; }
+  .me-pick .avatar { width: 84px; height: 84px; font-size: 50px; flex: none; box-shadow: 0 0 0 3px rgba(255,255,255,.08), 0 0 0 6px rgba(225,6,0,.35), 0 14px 30px rgba(0,0,0,.6); }
+  .me-pick .hint { color: var(--mist); font-size: 15px; }
+  .emo-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .emo-tabs::-webkit-scrollbar { display: none; }
+  .emo-tabs button { flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--edge); font-weight: 600; font-size: 14px; color: var(--mist); }
+  .emo-tabs button.on { background: var(--flood); color: #101724; box-shadow: none; }
+  .emo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 2px; max-height: 210px; overflow-y: auto; padding: 8px; background: rgba(6,10,16,.55); border-radius: 16px; box-shadow: inset 0 2px 8px rgba(0,0,0,.45); }
+  .emo-grid button { font-size: 26px; aspect-ratio: 1; border-radius: 12px; padding: 0; line-height: 1; transition: transform .1s; }
+  .emo-grid button:active { transform: scale(.88); }
+  .emo-grid button.on { background: rgba(255,255,255,.12); box-shadow: inset 0 0 0 2px var(--flood); }
+  .note { font-size: 13px; color: var(--mist); margin-top: 8px; }
+  #joinBtn { width: 100%; min-height: 58px; font-size: 18px; }
+  .banner { padding: 12px 16px; border-radius: 14px; font-weight: 600; background: rgba(47,210,107,.12); color: #8ff0b4; box-shadow: inset 3px 0 0 var(--green); }
+  .banner.warn { background: rgba(225,6,0,.12); color: #ffb0a8; box-shadow: inset 3px 0 0 var(--signal); }
+
+  /* ===== lobby: the starting grid ===== */
+  #lobby { gap: 16px; }
+  .pit-head { padding-top: 18px; }
+  .pit-head h2 { margin: 2px 0 0; font-size: 34px; }
+  .pit-head .wait { color: var(--mist); margin-top: 6px; font-size: 16px; }
+  .dots::after { content: ''; animation: dots 1.4s steps(4) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  .stick-tip { display: none; }
+  #lobbyCount { color: var(--mist); font-weight: 600; font-size: 15px; }
+  .garage { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; padding: 16px 12px; border-radius: 20px;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 2px, transparent 2px 6px), linear-gradient(180deg, #1a212c, #121821); box-shadow: inset 0 2px 10px rgba(0,0,0,.6), 0 0 0 1px var(--edge); }
+  .slot { position: relative; display: flex; align-items: center; gap: 10px; padding: 14px 10px 12px; cursor: pointer; user-select: none; -webkit-user-select: none; transition: transform .1s;
+    border: 2px solid rgba(255,255,255,.75); border-bottom: 0; border-radius: 2px; }
+  .slot:nth-child(even) { margin-top: 26px; }
+  .slot::before { content: attr(data-pos); position: absolute; top: -11px; left: 8px; padding: 0 6px; background: #161d27; font-size: 12px; font-weight: 700; color: var(--mist); }
+  .slot:active { transform: scale(.97); }
+  .slot .avatar { width: 46px; height: 46px; font-size: 27px; flex: none; }
+  .slot .nm { font-weight: 700; font-size: 15px; line-height: 1.15; word-break: break-word; }
+  .slot.me { border-color: var(--signal-hi); }
+  .slot.me .nm::after { content: ' · you'; color: var(--signal-hi); font-weight: 600; }
+  .slot.dummy { border-style: dashed; border-color: rgba(255,255,255,.35); }
+  .slot.dummy .nm { color: var(--mist); font-weight: 600; }
+  .slot.hit .avatar { animation: squish .35s; }
+  @keyframes squish { 30% { transform: scale(1.3, .65); } 60% { transform: scale(.9, 1.12); } }
+  .stick { position: absolute; left: 30px; top: -36px; width: 18px; height: 86px; transform-origin: 50% 95%; pointer-events: none; z-index: 5; animation: swing .3s ease-in forwards; }
+  .stick svg { width: 100%; height: 100%; }
+  @keyframes swing { 0% { transform: rotate(-85deg) translate(10px, -10px); } 100% { transform: rotate(18deg); } }
+  .boom { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-weight: 900; font-style: italic; font-size: 22px; color: #fff; text-shadow: 0 0 18px rgba(255,59,47,.9), 0 2px 0 #9c0400; pointer-events: none; z-index: 6; animation: boom .6s ease-out forwards; white-space: nowrap; }
+  @keyframes boom { 0% { transform: translateX(-50%) scale(.3); opacity: 0; } 30% { transform: translateX(-50%) scale(1.25); opacity: 1; } 100% { transform: translate(-50%, -26px) scale(1); opacity: 0; } }
+  body.shake .app { animation: shakeit .45s; }
+  @keyframes shakeit { 20%,60% { transform: translateX(-7px) rotate(-1deg); } 40%,80% { transform: translateX(7px) rotate(1deg); } }
+  .bat-dock { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 20px; background: linear-gradient(180deg, rgba(36,48,70,.7), rgba(16,22,33,.8)); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px var(--edge); }
+  .bat-dock b { display: block; font-size: 17px; font-weight: 700; }
+  .bat-dock span { font-size: 14px; color: var(--mist); }
+  .bat { width: 30px; height: 112px; flex: none; touch-action: none; cursor: grab; transform-origin: 50% 88%; animation: batBob 1.8s ease-in-out infinite; }
+  .bat svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+  @keyframes batBob { 50% { transform: rotate(-12deg); } }
+  .bat.held { position: fixed; z-index: 85; animation: none; cursor: grabbing; filter: drop-shadow(0 12px 14px rgba(0,0,0,.7)); transition: transform .05s linear; }
+  .bat.whack { transition: none; }
+  .bat-ghost { width: 30px; height: 112px; flex: none; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--edge-hi); }
+  .road { margin-top: auto; }
+
+  /* ===== briefing mirror ===== */
+  #brief { justify-content: center; gap: 18px; }
+  #brief .watch { text-align: center; color: var(--mist); }
+  #brief .bcard { animation: cardIn .5s cubic-bezier(.2,1.2,.4,1); }
+  @keyframes cardIn { from { transform: translateY(24px) rotateX(16deg); opacity: 0; } }
+  .steps-dots { display: flex; justify-content: center; gap: 8px; }
+  .steps-dots i { width: 34px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); }
+  .steps-dots i.on { background: var(--signal-hi); }
+
+  /* ===== round intro ===== */
+  #intro { justify-content: center; text-align: left; gap: 6px; padding: 0 6px; }
+  #intro .kicker { font-size: 17px; color: var(--signal-hi); font-weight: 700; }
+  #intro h1 { margin: 4px 0 0; font-size: min(64px, 15vw); animation: slam .55s cubic-bezier(.2,1.5,.4,1); }
+  @keyframes slam { from { transform: translateX(-40px) skewX(-12deg); opacity: 0; } }
+  #intro .line { width: 100%; height: 3px; margin: 16px 0; background: linear-gradient(90deg, var(--signal-hi), transparent); animation: grow .8s ease-out; transform-origin: left; }
+  @keyframes grow { from { transform: scaleX(0); } }
+  #intro p { color: #c9d2e0; margin: 0; font-size: 18px; }
+
+  /* ===== HUD ===== */
+  .hud { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 10px 8px 8px; border-radius: 999px; background: rgba(10,15,23,.7); box-shadow: inset 0 0 0 1px var(--edge); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .hud .avatar { width: 34px; height: 34px; font-size: 20px; flex: none; }
+  .hud .stage { font-weight: 700; font-size: 15px; }
+  .hud .spacer { flex: 1; }
+  .hud .pos { font-weight: 900; font-style: italic; font-size: 14px; padding: 3px 10px; border-radius: 8px; background: var(--purple); color: #fff; }
+  .hud .score { font-weight: 900; font-size: 19px; font-variant-numeric: tabular-nums; }
+  .hud .score small { color: var(--mist); font-size: 12px; font-weight: 600; margin-left: 3px; }
+  .timerrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .timerrow .shift { flex: 1; }
+  .timerrow .secs { font-weight: 900; font-style: italic; font-size: 22px; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  .timerrow .secs.low { color: var(--signal-hi); }
+
+  /* ===== round 1: badge inside a rev gauge ===== */
+  #logo .timerrow { display: none; }
+  .gauge-wrap { position: relative; width: min(86vw, 340px); aspect-ratio: 1; margin: 4px auto 0; }
+  .gauge-wrap svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(135deg); }
+  .gauge-wrap .track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 7; stroke-linecap: round; }
+  .gauge-wrap .fill { fill: none; stroke: url(#ringGrad); stroke-width: 7; stroke-linecap: round; transition: stroke .3s; filter: drop-shadow(0 0 6px rgba(255,197,30,.5)); }
+  .gauge-wrap .ticks line { stroke: rgba(255,255,255,.35); stroke-width: 1.4; }
+  .gauge-wrap .ticks line.red { stroke: var(--signal-hi); stroke-width: 2.2; }
+  .logo-stage { position: absolute; inset: 15%; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle at 38% 28%, #ffffff 0%, #eef1f5 45%, #c9d0da 100%);
+    box-shadow: 0 0 0 6px #0b1018, 0 0 0 8px rgba(255,255,255,.18), 0 24px 50px rgba(0,0,0,.7), inset 0 -10px 24px rgba(0,0,0,.12); overflow: hidden; }
+  .logo-stage::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%); pointer-events: none; }
+  .logo-stage img { width: 68%; height: 68%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)); user-select: none; -webkit-user-drag: none; }
+  .logo-stage .qn { display: none; }
+  .gauge-secs { position: absolute; left: 0; right: 0; bottom: 1%; text-align: center; font-weight: 900; font-style: italic; font-size: 28px; font-variant-numeric: tabular-nums; }
+  .gauge-secs.low { color: var(--signal-hi); }
+  .hintline { min-height: 30px; text-align: center; margin: 14px 0 10px; font-weight: 700; letter-spacing: .28em; color: var(--yellow); font-size: 20px; }
+  .hintline.waiting { letter-spacing: 0; font-size: 15px; color: var(--mist); font-weight: 400; }
+  .answer-row { display: flex; gap: 10px; }
+  .answer-row .input { font-size: 20px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .answer-row .btn { min-width: 84px; }
+  .answer-row.shake { animation: shakeit .4s; }
+  .tries { text-align: center; margin-top: 12px; font-size: 15px; color: var(--mist); }
+  .tries b { letter-spacing: 3px; }
+
+  .fb { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,.25), rgba(0,0,0,.55)); }
+  .fb .card { min-width: 280px; max-width: 90vw; text-align: center; padding: 24px 28px; border-radius: 24px; background: linear-gradient(180deg, #1b2537, #111824); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 30px 70px rgba(0,0,0,.7); animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
+  .fb.good .card { box-shadow: inset 0 3px 0 var(--green), 0 30px 70px rgba(0,0,0,.7); } .fb.bad .card { box-shadow: inset 0 3px 0 var(--signal), 0 30px 70px rgba(0,0,0,.7); }
+  .fb .t { font-weight: 900; font-style: italic; font-size: 30px; }
+  .fb.good .t { color: var(--green); } .fb.bad .t { color: #ff7a70; }
+  .fb .a { font-weight: 700; letter-spacing: .1em; margin-top: 6px; font-size: 18px; color: var(--yellow); }
+  .fb .p { font-weight: 900; font-style: italic; font-size: 44px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  @keyframes pop { from { transform: scale(.75); opacity: 0; } }
+
+  /* ===== round 2: frosted glass board ===== */
+  .board-wrap { position: relative; width: 100%; aspect-ratio: 1; border-radius: 22px; padding: 6px; touch-action: none; user-select: none; -webkit-user-select: none;
+    background: linear-gradient(160deg, #fbfcfd, #e4e8ee); box-shadow: 0 0 0 6px #0b1018, 0 0 0 7px rgba(255,255,255,.15), 0 26px 50px rgba(0,0,0,.65); }
+  .board-wrap::after { content: ''; position: absolute; inset: 0; border-radius: 22px; background: linear-gradient(150deg, rgba(255,255,255,.5), rgba(255,255,255,0) 40%); pointer-events: none; }
+  .cells { position: absolute; inset: 10px; display: grid; }
+  .cell { display: grid; place-items: center; font-weight: 700; color: #172031; font-size: min(23px, 5.8vw); position: relative; z-index: 2; pointer-events: none; }
+  .cell.anchor { color: #fff; }
+  .cell.anchor::before { content: ''; position: absolute; inset: 10%; border-radius: 50%; background: var(--signal); z-index: -1; }
+  svg.marks { position: absolute; inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); z-index: 1; pointer-events: none; overflow: visible; }
+  svg.marks line { stroke-linecap: round; }
+  .sel-bad { animation: badsel .45s; }
+  @keyframes badsel { 50% { opacity: .15; } }
+  .partlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .partlist span { padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 14px; }
+  .partlist span.f { color: #0d131d; }
+  .partlist span.hiddenleft { color: var(--mist); box-shadow: inset 0 0 0 1px var(--edge-hi); font-weight: 600; }
+  .partsfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: var(--mist); font-weight: 600; font-size: 15px; }
+  .flash { position: fixed; left: 50%; top: 15svh; transform: translateX(-50%); z-index: 45; padding: 10px 20px; border-radius: 999px; font-weight: 900; font-style: italic; font-size: 17px; color: #0d131d; box-shadow: 0 12px 30px rgba(0,0,0,.5); animation: flashIn 1.2s both; pointer-events: none; white-space: nowrap; }
+  @keyframes flashIn { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); } 15%,75% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -10px); } }
+
+  /* ===== round 3: 3D paper cubes ===== */
+  .movie-head { margin: 4px 0 16px; }
+  .movie-head .clapper { display: none; }
+  .movie-head .k { font-weight: 700; color: var(--signal-hi); font-size: 15px; }
+  .movie-head .t { font-weight: 900; font-style: italic; font-size: 26px; margin-top: 2px; }
+  .words { display: flex; flex-direction: column; gap: 22px; align-items: center; padding: 26px 8px; border-radius: 22px; touch-action: none;
+    background: radial-gradient(circle at 50% 0%, rgba(255,214,140,.14), transparent 65%), linear-gradient(180deg, rgba(26,33,44,.85), rgba(12,17,25,.9)); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px var(--edge); }
+  .wordrow { display: flex; gap: 7px; padding: 9px; border-radius: 14px; transition: background .25s, box-shadow .25s; }
+  .wordrow.ok { background: rgba(47,210,107,.1); box-shadow: inset 0 0 0 2px rgba(47,210,107,.7); }
+  .cube { width: var(--cube, 44px); height: var(--cube, 44px); display: grid; place-items: center; border-radius: 7px; font-weight: 900; font-size: calc(var(--cube, 44px) * .52); color: #2b2418;
+    background: linear-gradient(155deg, #fffdf7 0%, #f1e8d3 55%, #e2d5b6 100%);
+    box-shadow: inset 0 1px 0 #fff, inset -2px -3px 0 rgba(160,140,100,.35), 4px 5px 0 #c4b48d, 4px 5px 0 1px rgba(0,0,0,.25), 0 12px 18px rgba(0,0,0,.5);
+    transform: rotate(var(--rot, 0deg)); user-select: none; -webkit-user-select: none; cursor: grab; transition: transform .16s, box-shadow .16s; touch-action: none; }
+  .cube.sel { transform: translateY(-9px) rotate(0); box-shadow: inset 0 1px 0 #fff, 0 0 0 3px var(--cyan), 4px 12px 0 #c4b48d, 0 20px 26px rgba(0,0,0,.55); }
+  .cube.ghost { position: fixed; z-index: 60; pointer-events: none; transform: scale(1.18) rotate(-5deg); }
+  .cube.target { box-shadow: inset 0 1px 0 #fff, 0 0 0 3px var(--yellow), 4px 5px 0 #c4b48d; }
+  .wordrow.ok .cube { background: linear-gradient(155deg, #f2fff7, #c9f3d9); box-shadow: inset 0 1px 0 #fff, 4px 5px 0 #7dc79a, 0 12px 18px rgba(0,0,0,.5); }
+  .cube.swapped { animation: swapIn .25s ease-out; }
+  @keyframes swapIn { from { transform: scale(.7); } }
+  .movie-help { text-align: center; color: var(--mist); font-size: 15px; margin-top: 16px; }
+  .skiprow { display: flex; justify-content: center; margin-top: auto; padding-top: 16px; }
+
+  /* ===== round summary ===== */
+  .sum-back { position: fixed; inset: 0; z-index: 55; display: grid; place-items: end center; padding: 16px; background: linear-gradient(transparent 20%, rgba(3,6,10,.85)); }
+  .sum { width: 100%; max-width: 450px; padding: 24px; border-radius: 26px; background: linear-gradient(180deg, #1b2537, #111824); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 -10px 60px rgba(0,0,0,.6); animation: up .35s cubic-bezier(.2,1.2,.4,1); }
+  .sum.good { box-shadow: inset 0 3px 0 var(--green), 0 -10px 60px rgba(0,0,0,.6); }
+  .sum h2 { margin: 0; font-size: 26px; }
+  .sum .p { font-weight: 900; font-style: italic; font-size: 52px; color: var(--yellow); margin: 6px 0; font-variant-numeric: tabular-nums; }
+  .sum .b { color: #c9d2e0; font-size: 16px; line-height: 1.5; }
+  .sum .btn { width: 100%; margin-top: 18px; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } }
+
+  /* ===== finish ===== */
+  #done, #ended { justify-content: center; gap: 16px; }
+  #done h2, #ended h2 { margin: 0; font-size: 34px; text-align: center; }
+  .big-av { width: 112px; height: 112px; font-size: 64px; margin: 0 auto; box-shadow: 0 0 0 4px rgba(255,255,255,.08), 0 0 0 8px rgba(163,59,255,.35), 0 20px 40px rgba(0,0,0,.6); }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { padding: 14px 4px; border-radius: 16px; background: rgba(16,22,33,.75); box-shadow: inset 0 0 0 1px var(--edge); text-align: center; }
+  .stat b { display: block; font-weight: 900; font-style: italic; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 13px; color: var(--mist); }
+  #done > .muted, #ended > .muted { text-align: center; }
+  .rank-big { font-weight: 900; font-style: italic; font-size: 96px; line-height: 1; text-align: center; color: #fff; text-shadow: 0 0 50px rgba(163,59,255,.6); }
+  #done p { text-align: center; }
+  .top { list-style: none; padding: 0; margin: 0; }
+  .top li { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; margin-bottom: 6px; background: rgba(16,22,33,.75); box-shadow: inset 0 0 0 1px var(--edge); font-weight: 700; }
+  .top li .avatar { width: 32px; height: 32px; font-size: 19px; }
+  .top li .nm { flex: 1; }
+  .top li.me { box-shadow: inset 3px 0 0 var(--purple), inset 0 0 0 1px var(--edge); }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<button class="mute" id="mute" title="Sound">🔊</button>
+<div class="app">
+
+  <!-- ================= JOIN ================= -->
+  <section id="join" class="screen hidden">
+    <div class="hero">
+      <div class="brand"><span class="flag"></span><span>GRAND <span class="gp">PRIX</span></span></div>
+      <div class="sub">Name the badges, hunt the parts, unscramble the movie. Fastest driver takes the trophy.</div>
+      <div class="road"><div class="car" id="heroCar"></div></div>
+    </div>
+    <div id="stateBanner" class="banner hidden"></div>
+    <form class="panel redline join-card" id="joinForm" autocomplete="off">
+      <div>
+        <h3>Who’s driving?</h3>
+        <select class="input" id="who"><option value="">Select your name…</option></select>
+        <div id="customWrap" class="hidden" style="margin-top:10px">
+          <input class="input" id="customName" maxlength="24" placeholder="Type your name" autocapitalize="words">
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Pick your helmet</label>
+        <div class="me-pick"><span class="avatar" id="avatarBig"></span><div><div class="hint">Your emoji shows on the big screen.</div><button type="button" class="btn ghost small" id="randEmoji" style="margin-top:8px">🎲 Random</button></div></div>
+        <div class="emo-tabs" id="emoTabs" style="margin-top:12px"></div>
+        <div class="emo-grid" id="emoGrid" style="margin-top:8px"></div>
+      </div>
+      <div class="error" id="joinErr"></div>
+      <button class="btn" id="joinBtn" type="submit">Take my grid slot</button>
+    </form>
+  </section>
+
+  <!-- ================= LOBBY ================= -->
+  <section id="lobby" class="screen hidden">
+    <div class="pit-head">
+      <div class="kicker">On the starting grid</div>
+      <h2>Ready, <span id="lobbyName"></span>?</h2>
+      <div class="wait">Waiting for the race director<span class="dots"></span></div>
+    </div>
+    <div class="stick-tip"><span class="s">🏏</span><span>Bored waiting? Grab the stick and <b>bonk</b> a driver. They’ll never know it was you 😈</span></div>
+    <div class="kicker" id="lobbyCount" style="text-align:center"></div>
+    <div class="garage" id="garage"></div>
+    <div class="bat-dock" id="batDock"><div class="bat" id="bat" title="Grab the stick"></div><div><b>Grab the stick!</b><span>Drag it onto a driver and swing. Or just tap a driver.</span></div></div>
+    <div class="road"><div class="car" id="lobbyCar"></div></div>
+  </section>
+
+  <!-- ================= BRIEFING ================= -->
+  <section id="brief" class="screen hidden">
+    <div class="steps-dots" id="briefDots"><i></i><i></i><i></i></div>
+    <div id="briefCard"></div>
+    <div class="watch">📺 Watch the big screen. The race starts soon!</div>
+  </section>
+
+  <!-- ================= ROUND INTRO ================= -->
+  <section id="intro" class="screen hidden">
+    <div class="kicker" id="introK"></div>
+    <h1 id="introT"></h1>
+    <div class="line"></div>
+    <p id="introP"></p>
+  </section>
+
+  <!-- ================= ROUND 1: LOGO ================= -->
+  <section id="logo" class="screen hidden">
+    <div class="hud"><span class="avatar av"></span><span class="stage" id="logoStage">Logo 1/10</span><span class="spacer"></span><span class="pos hidden"></span><span class="score"><span class="sv">0</span><small>PTS</small></span></div>
+    <div class="timerrow"><div class="shift" id="logoShift"></div><span class="secs" id="logoSecs"></span></div>
+    <div class="gauge-wrap">
+      <svg class="ring" viewBox="0 0 200 200"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2fd26b"/><stop offset=".6" stop-color="#ffc51e"/><stop offset="1" stop-color="#ff2a1c"/></linearGradient></defs>
+        <g class="ticks" id="ringTicks"></g>
+        <path class="track" d="M 100 100 m 0 -92 a 92 92 0 1 1 0 184 a 92 92 0 1 1 0 -184" pathLength="100" stroke-dasharray="75 100"/>
+        <path class="fill" id="ringFill" d="M 100 100 m 0 -92 a 92 92 0 1 1 0 184 a 92 92 0 1 1 0 -184" pathLength="100" stroke-dasharray="75 100"/>
+      </svg>
+      <div class="logo-stage"><img id="logoImg" alt="Car logo to identify"></div>
+      <div class="gauge-secs" id="ringSecs"></div>
+    </div>
+    <div class="hintline waiting" id="hintLine"></div>
+    <form class="answer-row" id="answerForm" autocomplete="off">
+      <input class="input" id="answer" placeholder="Type the brand" aria-label="Car brand" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+      <button class="btn" type="submit" id="answerBtn">GO</button>
+    </form>
+    <div class="tries" id="tries"></div>
+    <div class="skiprow"><button class="btn ghost small" id="logoSkip">Skip</button></div>
+  </section>
+
+  <!-- ================= ROUND 2: PARTS ================= -->
+  <section id="parts" class="screen hidden">
+    <div class="hud"><span class="avatar av"></span><span class="stage">Parts hunt</span><span class="spacer"></span><span class="pos hidden"></span><span class="score"><span class="sv">0</span><small>PTS</small></span></div>
+    <div class="timerrow"><div class="shift" id="partsShift"></div><span class="secs" id="partsSecs"></span></div>
+    <div class="board-wrap" id="board"><svg class="marks" id="marks"></svg><div class="cells" id="cells"></div></div>
+    <div class="partlist" id="partlist"></div>
+    <div class="partsfoot"><span id="partsCount"></span><button class="btn ghost small" id="partsSkip">Finish round</button></div>
+  </section>
+
+  <!-- ================= ROUND 3: MOVIE ================= -->
+  <section id="movie" class="screen hidden">
+    <div class="hud"><span class="avatar av"></span><span class="stage">Movie shuffle</span><span class="spacer"></span><span class="pos hidden"></span><span class="score"><span class="sv">0</span><small>PTS</small></span></div>
+    <div class="timerrow"><div class="shift" id="movieShift"></div><span class="secs" id="movieSecs"></span></div>
+    <div class="movie-head"><div class="k">A famous car movie</div><div class="t">Swap the cubes into the title</div></div>
+    <div class="words" id="words"></div>
+    <div class="movie-help">Tap two cubes to swap them, or drag one onto another.</div>
+    <div class="skiprow"><button class="btn ghost small" id="movieSkip">Give up</button></div>
+  </section>
+
+  <!-- ================= FINISHED ================= -->
+  <section id="done" class="screen hidden">
+    <div class="avatar big-av av"></div>
+    <div class="waving-flag" style="width:150px;margin:6px auto 0"></div>
+    <h2>Chequered flag! 🏁</h2>
+    <div class="stat-row" id="doneStats"></div>
+    <div class="muted" style="font-weight:800">Current position</div>
+    <div class="rank-big" id="doneRank">P–</div>
+    <p class="muted" style="margin:0;font-weight:700">Others are still racing. Watch the big screen for the final results.</p>
+  </section>
+
+  <!-- ================= ENDED ================= -->
+  <section id="ended" class="screen hidden">
+    <div class="avatar big-av av"></div>
+    <h2 id="endTitle">Race over</h2>
+    <div class="muted" style="font-weight:800">You finished</div>
+    <div class="rank-big" id="endRank">P–</div>
+    <div class="stat-row" id="endStats"></div>
+    <ol class="top" id="endTop"></ol>
+  </section>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { esc, sleep, sound } = GP;
+const KEY = 'gp.player.v1';
+
+// ---------------- emoji catalogue ----------------
+const EMO = {
+  'Faces': '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😏 😒 🙄 😬 😌 😔 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 🤡 👹 👺 👻 👽 👾 🤖 😺 😸 😹 😻 😼 🙀',
+  'Animals': '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🐛 🦋 🐌 🐞 🐜 🦂 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦐 🦀 🐡 🐠 🐟 🐬 🐳 🐋 🦈 🐊 🐅 🐆 🦓 🦍 🐘 🦛 🦏 🐪 🦒 🦘 🐃 🐂 🐄 🐎 🐖 🐏 🐑 🦙 🐐 🦌 🐕 🐩 🐈 🐓 🦃 🦚 🦜 🦢 🦩 🐇 🦝 🦨 🦡 🦦 🦥 🐁 🐿️ 🦔',
+  'Cars & Sport': '🏎️ 🚗 🚓 🚕 🚙 🛻 🚐 🚌 🏍️ 🛵 🚲 🛴 🚜 🚑 🚒 🚚 🚛 🚀 ✈️ 🚁 🛸 ⛵ 🚤 🏁 🚦 🚥 🛞 ⛽ 🛣️ 🏆 🥇 🥈 🥉 🏅 ⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🏏 🏑 🏒 🥊 🥋 ⛳ 🎯 🎳 🏹 🎣 🤿 🛹 🛼 🎿 ⛸️ 🏂 🏋️ 🤸 🏄 🚴 🧗 🤺 🏇',
+  'Food': '🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🥦 🌶️ 🌽 🥕 🥔 🥐 🍞 🥨 🧀 🥚 🍳 🥞 🧇 🥓 🍗 🍖 🌭 🍔 🍟 🍕 🥪 🌮 🌯 🥗 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🍤 🍙 🍚 🍘 🍥 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 🥜 🍯 ☕ 🍵 🧃 🥤 🧋 🍺 🧉',
+  'Cool stuff': '🔥 ⚡ 💥 ✨ 🌟 ⭐ 🌈 ☀️ 🌙 ❄️ 🌊 🌪️ 🍀 🌵 🌴 🌻 🌹 🌸 🍄 💎 👑 🎩 🧢 🕶️ 🎧 🎮 🕹️ 🎲 🧩 🎸 🥁 🎷 🎺 🎻 🎤 🎬 📸 💡 🔦 🧭 ⏱️ ⏰ 🔧 🔩 ⚙️ 🧲 🛠️ 💣 🧨 🎈 🎉 🎊 🎁 🪄 🔮 💰 💸 🚨 🛡️ ⚔️ 🗿 🧸 🪁 🪀 🪐 🌍 🗻 🌋 ⛩️ 🗽 🎡 🎢 🎠',
+  'Hearts & Symbols': '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 💯 💢 💫 💦 💨 🕳️ 💤 ♻️ ✅ ❌ ⭕ ❗ ❓ ⚠️ 🔞 ☢️ ☣️ 🆒 🆕 🆗 🆙 🔝 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟥 🟧 🟨 🟩 🟦 🟪 ⬛ ⬜ 🔶 🔷 ♠️ ♥️ ♦️ ♣️ 🃏 🀄',
+};
+const ALL_EMO = Object.values(EMO).flatMap((s) => s.split(' '));
+let avatar = ['🏎️', '😎', '🔥', '🦁', '🐯', '🚀', '⚡', '🦊'][Math.floor(Math.random() * 8)];
+let emoTab = 'Cars & Sport';
+
+// ---------------- state ----------------
+let session = null, rules = null, pollT = null, meT = null, raf = null;
+let lastStatus = null, briefShown = -1, ignitionShown = false, countdownDone = false;
+let expectedStep = null, introShown = new Set(), score = 0;
+let q = null, busy = false;
+let lastRank = null, lastBonked = null;
+
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } };
+const save = (v) => { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch {} };
+const api = (path, body) => GP.api(path, { body, headers: session ? { 'x-player-token': session.token } : {} });
+function show(id) { for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== id); $('mute').classList.toggle('hidden', !['join', 'lobby', 'brief', 'done', 'ended'].includes(id)); BG.dim(['logo', 'parts', 'movie', 'done', 'ended'].includes(id)); window.scrollTo(0, 0); }
+function setAv() { document.querySelectorAll('.av').forEach((e) => (e.textContent = session?.emoji || avatar)); }
+function setScore(v) { score = v; document.querySelectorAll('.sv').forEach((e) => (e.textContent = v)); }
+function lost() { session = null; save(null); clearTimeout(pollT); clearTimeout(meT); joinScreen(); }
+
+$('mute').textContent = GP.isMuted() ? '🔇' : '🔊';
+$('mute').onclick = () => { GP.setMuted(!GP.isMuted()); $('mute').textContent = GP.isMuted() ? '🔇' : '🔊'; };
+document.addEventListener('pointerdown', () => GP.unlock(), { once: true });
+const BG = GP.backdrop($('bg'));
+$('heroCar').innerHTML = GP.carSVG('#e10600', true);
+$('lobbyCar').innerHTML = GP.carSVG('#e9edf3', true);
+$('ringTicks').innerHTML = Array.from({ length: 31 }, (_, k) => { const ang = (k * 9) * Math.PI / 180, r1 = k % 5 ? 80 : 76, r2 = 84;
+  return `<line class="${k >= 24 ? 'red' : ''}" x1="${100 + r1 * Math.sin(ang)}" y1="${100 - r1 * Math.cos(ang)}" x2="${100 + r2 * Math.sin(ang)}" y2="${100 - r2 * Math.cos(ang)}"/>`; }).join('');
+
+// ================= JOIN =================
+function renderEmoji() {
+  $('avatarBig').textContent = avatar;
+  $('emoTabs').innerHTML = Object.keys(EMO).map((k) => `<button type="button" class="${k === emoTab ? 'on' : ''}" data-tab="${k}">${k}</button>`).join('');
+  $('emoGrid').innerHTML = EMO[emoTab].split(' ').map((e) => `<button type="button" class="${e === avatar ? 'on' : ''}" data-e="${e}">${e}</button>`).join('');
+}
+$('emoTabs').onclick = (e) => { const t = e.target.closest('[data-tab]'); if (t) { emoTab = t.dataset.tab; renderEmoji(); $('emoGrid').scrollTop = 0; } };
+$('emoGrid').onclick = (e) => { const b = e.target.closest('[data-e]'); if (b) { avatar = b.dataset.e; $('avatarBig').textContent = avatar; for (const x of $('emoGrid').children) x.classList.toggle('on', x === b); } };
+$('randEmoji').onclick = () => { avatar = ALL_EMO[Math.floor(Math.random() * ALL_EMO.length)]; renderEmoji(); };
+renderEmoji();
+
+$('who').onchange = () => {
+  const custom = $('who').value === '__add';
+  $('customWrap').classList.toggle('hidden', !custom);
+  if (custom) {
+    GP.toast('🙈 <span>Sorry, we missed your name! Add it below and hop in.</span>', 'amber', 3500);
+    setTimeout(() => $('customName').focus(), 50);
+  }
+};
+async function loadRoster() {
+  try {
+    const r = await api('/api/roster');
+    const cur = $('who').value;
+    $('who').innerHTML = '<option value="">Select your name…</option>' +
+      r.names.map((n) => `<option value="${esc(n.name)}" ${n.joined ? 'disabled' : ''}>${esc(n.name)}${n.joined ? ' (already in)' : ''}</option>`).join('') +
+      '<option value="__add">➕ My name isn’t here</option>';
+    if ([...$('who').options].some((o) => o.value === cur && !o.disabled)) $('who').value = cur;
+  } catch {}
+}
+async function refreshStatus() {
+  try {
+    const st = await api('/api/status');
+    rules = st; lastStatus = st.status;
+    const b = $('stateBanner');
+    b.classList.toggle('hidden', st.status === 'lobby');
+    b.classList.toggle('warn', st.status === 'ended');
+    b.textContent = st.status === 'ended' ? '🏁 This race has finished. Wait for the host to start a new one.' : st.status === 'live' ? '🟢 The race is on! Join now and jump straight in.' : '🚦 Briefing in progress. Join now!';
+    $('joinBtn').disabled = st.status === 'ended';
+    return st;
+  } catch { return null; }
+}
+function joinScreen() {
+  show('join'); loadRoster(); refreshStatus();
+  clearTimeout(pollT);
+  const tick = async () => { if (!$('join').classList.contains('hidden')) { await Promise.all([loadRoster(), refreshStatus()]); pollT = setTimeout(tick, 5000); } };
+  pollT = setTimeout(tick, 5000);
+}
+$('joinForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); GP.unlock();
+  $('joinErr').textContent = '';
+  const name = $('who').value === '__add' ? $('customName').value.trim() : $('who').value;
+  if (!name) { $('joinErr').textContent = 'Pick your name first (or add it).'; return; }
+  $('joinBtn').disabled = true;
+  try {
+    const r = await api('/api/join', { name, emoji: avatar });
+    session = { token: r.token, gameId: r.gameId, id: r.id, name: r.name, emoji: r.emoji };
+    save(session); setAv(); sound.rev();
+    lobbyLoop();
+  } catch (err) {
+    $('joinErr').textContent = err.message === 'Failed to fetch' ? 'Can’t reach the game. Check your connection.' : err.message;
+    loadRoster();
+  } finally { $('joinBtn').disabled = false; }
+});
+
+// ================= LOBBY / BRIEFING / COUNTDOWN =================
+async function lobbyLoop() {
+  clearTimeout(pollT);
+  let l;
+  try { l = await api('/api/lobby'); }
+  catch (err) { if (err.status === 401) return lost(); pollT = setTimeout(lobbyLoop, 2500); return; }
+  if (l.gameId !== session.gameId) return lost();
+  // bonk notifications
+  if (lastBonked === null) lastBonked = l.bonked;
+  else if (l.bonked > lastBonked) {
+    const n = l.bonked - lastBonked; lastBonked = l.bonked;
+    GP.toast(`🤕 <span>Someone is bonking you${n > 1 ? ` (×${n})` : ''}!</span>`, 'red', 2200);
+    sound.ouch(); document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+    try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch {}
+  }
+  if (l.status === 'lobby') { renderLobby(l); pollT = setTimeout(lobbyLoop, 2000); return; }
+  if (l.status === 'tour') { await briefing(l.tourStep); pollT = setTimeout(lobbyLoop, 1200); return; }
+  if (l.status === 'live') {
+    if (GP.serverNow() < l.goAt) { await prepRace(); await GP.countdown(l.goAt); countdownDone = true; expectedStep = 0; }
+    return race();
+  }
+  if (l.status === 'ended') return ended();
+}
+function renderLobby(l) {
+  if ($('lobby').classList.contains('hidden')) show('lobby');
+  $('lobbyName').textContent = session.name;
+  $('lobbyCount').textContent = `${l.players.length} driver${l.players.length === 1 ? '' : 's'} on the grid`;
+  const key = l.players.map((p) => p.id + p.emoji).join();
+  if ($('garage').dataset.key === key) return;
+  $('garage').dataset.key = key;
+  $('garage').innerHTML = l.players.map((p, i) => `<div class="slot ${p.id === session.id ? 'me' : ''}" data-id="${p.id}" data-pos="P${i + 1}"><span class="avatar">${esc(p.emoji)}</span><span class="nm">${esc(p.name)}</span></div>`).join('') +
+    `<div class="slot dummy" data-id="dummy" data-pos="Pit"><span class="avatar">🤖</span><span class="nm">Crash-test dummy</span></div>`;
+}
+let lastBonkAt = 0;
+$('garage').addEventListener('click', (e) => { const slot = e.target.closest('.slot'); if (slot) bonkSlot(slot, true); });
+async function bonkSlot(slot, withStick) {
+  if (slot.dataset.id === session.id) { if (withStick) GP.toast('😅 <span>You can’t bonk yourself!</span>', '', 1600); return; }
+  const now = Date.now(); if (now - lastBonkAt < 300) return; lastBonkAt = now;
+  if (!withStick) { hitFx(slot); return send(slot); }
+  const stick = document.createElement('div');
+  stick.className = 'stick';
+  stick.innerHTML = '<svg viewBox="0 0 16 86"><rect x="4" y="0" width="8" height="70" rx="4" fill="#8b5a2b"/><rect x="2" y="64" width="12" height="20" rx="4" fill="#3b2412"/><rect x="5" y="4" width="2" height="58" rx="1" fill="#b07a45"/></svg>';
+  slot.appendChild(stick);
+  setTimeout(() => hitFx(slot), 300);
+  setTimeout(() => stick.remove(), 420);
+  send(slot);
+}
+function hitFx(slot) {
+  sound.bonk(); slot.classList.remove('hit'); void slot.offsetWidth; slot.classList.add('hit');
+  const b = document.createElement('div'); b.className = 'boom'; b.textContent = ['BONK!', 'POW!', 'THWACK!', 'BOINK!'][Math.floor(Math.random() * 4)];
+  slot.appendChild(b); setTimeout(() => b.remove(), 650);
+  try { navigator.vibrate && navigator.vibrate(20); } catch {}
+}
+async function send(slot) {
+  if (slot.dataset.id === 'dummy') return;
+  try { await api('/api/bonk', { target: slot.dataset.id }); } catch (err) { if (err.status === 404) slot.remove(); }
+}
+// ---- the grabbable stick ----
+const BAT_SVG = '<svg viewBox="0 0 30 112"><defs><linearGradient id="wood" x1="0" x2="1"><stop offset="0" stop-color="#7a4a1f"/><stop offset=".45" stop-color="#c58a4c"/><stop offset="1" stop-color="#6a3c16"/></linearGradient></defs><path d="M9 4 Q15 0 21 4 L23 70 Q23 76 19 78 L19 100 L11 100 L11 78 Q7 76 7 70 Z" fill="url(#wood)"/><path d="M12 8 L13 66 M17 10 L18 64" stroke="rgba(60,30,8,.45)" stroke-width="1"/><rect x="10" y="78" width="10" height="26" rx="3" fill="#1d1d22"/><path d="M10 82 L20 86 M10 88 L20 92 M10 94 L20 98" stroke="#3a3a44" stroke-width="2"/><ellipse cx="15" cy="106" rx="7" ry="4" fill="#2b2b33"/></svg>';
+$('bat').innerHTML = BAT_SVG;
+let batDrag = null;
+const bat = $('bat');
+function slotAtBatHead(x, y) {
+  const els = document.elementsFromPoint(x, y - 80);
+  return els.map((el) => el.closest && el.closest('.slot')).find(Boolean) || null;
+}
+function placeBat(e, ang) {
+  bat.style.left = (e.clientX - 15) + 'px';
+  bat.style.top = (e.clientY - 100) + 'px';
+  bat.style.transform = `rotate(${ang}deg)`;
+}
+bat.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); GP.unlock();
+  bat.setPointerCapture(e.pointerId);
+  const ghost = document.createElement('div'); ghost.className = 'bat-ghost'; ghost.id = 'batGhost';
+  bat.parentNode.insertBefore(ghost, bat);
+  bat.classList.add('held');
+  batDrag = { lastX: e.clientX, lastT: performance.now(), lastSlot: null, hits: new Map() };
+  placeBat(e, 0);
+});
+bat.addEventListener('pointermove', (e) => {
+  if (!batDrag) return;
+  const now = performance.now(), dx = e.clientX - batDrag.lastX, v = dx / Math.max(1, now - batDrag.lastT);
+  batDrag.lastX = e.clientX; batDrag.lastT = now;
+  placeBat(e, Math.max(-70, Math.min(70, v * 60)));
+  const slot = slotAtBatHead(e.clientX, e.clientY);
+  if (slot && slot !== batDrag.lastSlot && Math.abs(v) > 0.35) {
+    const last = batDrag.hits.get(slot) || 0;
+    if (now - last > 350) { batDrag.hits.set(slot, now); bonkSlot(slot, false); }
+  }
+  batDrag.lastSlot = slot;
+});
+function dropBat(e) {
+  if (!batDrag) return;
+  const slot = e ? slotAtBatHead(e.clientX, e.clientY) : null;
+  if (slot) {
+    bat.classList.add('whack'); bat.style.transform = 'rotate(-75deg)';
+    requestAnimationFrame(() => requestAnimationFrame(() => { bat.style.transition = 'transform .12s ease-in'; bat.style.transform = 'rotate(20deg)'; }));
+    setTimeout(() => bonkSlot(slot, false), 110);
+  }
+  batDrag = null;
+  setTimeout(() => {
+    bat.classList.remove('held', 'whack'); bat.style.cssText = '';
+    const g = $('batGhost'); if (g) g.remove();
+  }, slot ? 260 : 0);
+}
+bat.addEventListener('pointerup', dropBat);
+bat.addEventListener('pointercancel', () => dropBat(null));
+
+function ignition() {
+  return new Promise((resolve) => {
+    const o = document.createElement('div');
+    o.className = 'ignite';
+    const gauge = (lbl) => `<div class="gauge"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="#0b0c10" stroke="#2a2e38" stroke-width="4"/>
+      ${Array.from({ length: 11 }, (_, i) => { const a = (-130 + i * 26) * Math.PI / 180; const r1 = 80, r2 = i > 7 ? 64 : 70; return `<line x1="${100 + r1 * Math.sin(a)}" y1="${100 - r1 * Math.cos(a)}" x2="${100 + r2 * Math.sin(a)}" y2="${100 - r2 * Math.cos(a)}" stroke="${i > 7 ? '#ff2a2a' : '#cfd3dc'}" stroke-width="${i > 7 ? 4 : 3}"/>`; }).join('')}
+      <g class="needle"><line x1="100" y1="100" x2="100" y2="30" stroke="#ff2a2a" stroke-width="4" stroke-linecap="round"/></g><circle cx="100" cy="100" r="9" fill="#e6e9ee"/></svg><div class="lbl">${lbl}</div></div>`;
+    o.innerHTML = `<div><div class="dash">${gauge('RPM ×1000')}${gauge('KM/H')}</div><div class="warn-lights">🔋 🛢️ ⚠️ 🌡️</div><div class="word">ENGINE START</div></div>`;
+    document.body.appendChild(o); sound.engineStart();
+    setTimeout(() => { o.remove(); resolve(); }, 3200);
+  });
+}
+async function briefing(step) {
+  if (!ignitionShown) { ignitionShown = true; await ignition(); }
+  if (briefShown === step && !$('brief').classList.contains('hidden')) return;
+  briefShown = step;
+  show('brief');
+  if (!rules) await refreshStatus();
+  const c = GP.cards(rules)[step];
+  [...$('briefDots').children].forEach((d, i) => d.classList.toggle('on', i <= step));
+  $('briefCard').innerHTML = `<div class="bcard"><div class="num">0${step + 1}</div><div class="icon">${c.icon}</div><div class="kicker">${c.kicker}</div><h2>${c.title}</h2><p>${c.text}</p><div class="chips">${c.chips.map((x) => `<span>${x}</span>`).join('')}</div><div class="score">⚡ ${c.score}</div><div class="tip">${c.tip}</div></div>`;
+  sound.tick();
+}
+let preloaded = false;
+async function prepRace() {
+  if (preloaded) return;
+  const st = await refreshStatus();
+  // preload logo images so every question appears instantly
+  (st?.logoImages || []).forEach((src) => { const im = new Image(); im.src = src; });
+  if (st?.logoImages) preloaded = true;
+}
+
+// ================= RACE LOOP =================
+async function intro(step) {
+  if (expectedStep === null || introShown.has(step)) return;
+  const n = rules?.logos || 10;
+  const meta = step === 0 ? ['Round 1', 'Badge Hunt', `${n} logos · ${rules.times.logo}s each`] : step === n ? ['Round 2', 'Parts Hunt', `Find the car parts · ${rules.times.parts}s`] : step === n + 1 ? ['Round 3', 'Movie Shuffle', `Unscramble the title · ${rules.times.movie}s`] : null;
+  if (!meta) return;
+  introShown.add(step);
+  $('introK').textContent = meta[0]; $('introT').textContent = meta[1]; $('introP').textContent = meta[2];
+  show('intro'); sound.rev();
+  await sleep(1900);
+}
+async function race() {
+  clearTimeout(pollT);
+  if (expectedStep !== null) await intro(expectedStep);
+  let r;
+  try { r = await api('/api/next', {}); }
+  catch (err) { if (err.status === 401) return lost(); pollT = setTimeout(race, 2000); return; }
+  if (r.state === 'countdown') { await prepRace(); await GP.countdown(r.goAt); expectedStep = 0; return race(); }
+  if (r.state === 'waiting') return lobbyLoop();
+  if (r.state === 'ended') return ended();
+  if (r.state === 'finished') { if (r.summary) await summary(r.summary); return finished(); }
+  if (r.summary) await summary(r.summary);
+  if (expectedStep !== null && r.step !== expectedStep) { expectedStep = r.step; if (!introShown.has(r.step) && [0, rules.logos, rules.logos + 1].includes(r.step)) return race(); }
+  expectedStep = r.step;
+  startMeTicker(); prepRace();
+  if (r.kind === 'logo') return logoQ(r);
+  if (r.kind === 'parts') return partsQ(r);
+  return movieQ(r);
+}
+function next(summaryObj) { expectedStep = (summaryObj ? summaryObj.step : q.step) + 1; q = null; busy = false; race(); }
+
+// ---- shift-light timer ----
+const SEG = 20;
+function buildShift(el) { el.innerHTML = Array.from({ length: SEG }, (_, i) => `<i class="${i < 10 ? 'g' : i < 15 ? 'y' : 'r'}"></i>`).join(''); }
+['logoShift', 'partsShift', 'movieShift'].forEach((id) => buildShift($(id)));
+function runTimer(shiftEl, secsEl, onEnd) {
+  cancelAnimationFrame(raf);
+  const my = q, start = performance.now() - (q.limitMs - q.remainingMs), limit = q.limitMs;
+  let lastLit = -1, lastSec = -1;
+  const segs = shiftEl.children;
+  const tick = () => {
+    if (q !== my) return;
+    const left = Math.max(0, start + limit - performance.now());
+    const lit = Math.ceil(SEG * left / limit);
+    if (lit !== lastLit) { lastLit = lit; for (let i = 0; i < SEG; i++) segs[i].classList.toggle('on', i < lit); shiftEl.classList.toggle('blink', left < 5000); }
+    const s = Math.ceil(left / 1000);
+    if (s !== lastSec) { lastSec = s; secsEl.textContent = s + 's'; secsEl.classList.toggle('low', left < 10000); if (left < 5000 && left > 0) sound.tick(); }
+    if (q.onTick) q.onTick(left);
+    if (shiftEl.id === 'logoShift') { $('ringFill').style.strokeDasharray = `${(75 * left / limit).toFixed(2)} 100`; $('ringSecs').textContent = s + 's'; $('ringSecs').classList.toggle('low', left < 10000); }
+    if (left <= 0) { if (!busy) onEnd(); return; }
+    raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+async function endStep(reason) {
+  if (busy || !q) return;
+  busy = true;
+  try {
+    const r = await api('/api/endstep', { step: q.step, reason });
+    setScore(r.score);
+    if (r.summary) await summary(r.summary);
+    next(r.summary || null);
+  } catch (err) { if (err.status === 401) return lost(); busy = false; q = null; race(); }
+}
+
+// ---- feedback / summaries ----
+async function feedback(good, title, ans, pts) {
+  const f = document.createElement('div');
+  f.className = 'fb ' + (good ? 'good' : 'bad');
+  f.innerHTML = `<div class="card"><div class="t">${title}</div>${ans ? `<div class="a">${esc(ans)}</div>` : ''}${pts !== null ? `<div class="p">+${pts}</div>` : ''}</div>`;
+  document.body.appendChild(f);
+  good ? sound.correct() : sound.wrong();
+  await sleep(good ? 1050 : 1500);
+  f.remove();
+}
+async function summary(s) {
+  cancelAnimationFrame(raf);
+  if (s.kind === 'logo') {
+    return feedback(s.correct, s.correct ? 'Correct! 🔥' : s.timedOut ? 'Time’s up ⏱️' : 'Missed it', s.answer.toUpperCase(), s.correct ? s.points : null);
+  }
+  // round-ending summaries for parts & movie
+  if (s.kind === 'parts' && q && q.kind === 'parts') { drawMarks(s.reveal.filter((x) => !x.found)); }
+  const back = document.createElement('div');
+  back.className = 'sum-back';
+  const good = s.correct;
+  const title = s.kind === 'parts' ? (good ? 'All parts found! 🔧' : `Parts hunt over: ${s.found}/${s.total}`) : (good ? 'Title unlocked! 🎬' : 'Out of time 🎬');
+  const line = s.kind === 'parts'
+    ? `${s.found} × ${rules.scoring.part}${s.bonus ? ` + ⚡ ${s.bonus} time bonus` : ''}${!good ? `<br>Missed: ${s.reveal.filter((x) => !x.found).map((x) => esc(x.name)).join(', ')}` : ''}`
+    : `It’s <b style="color:#fff">${esc(s.answer.toUpperCase())}</b>`;
+  back.innerHTML = `<div class="sum ${good ? 'good' : ''}"><h2>${title}</h2><div class="p">+${s.points}</div><div class="b">${line}</div><button class="btn">${s.kind === 'movie' ? 'Cross the finish line 🏁' : 'Next round'}</button></div>`;
+  document.body.appendChild(back);
+  good ? (sound.win(), GP.confetti(70)) : sound.wrong();
+  await new Promise((res) => {
+    const done = () => { clearTimeout(t); back.remove(); res(); };
+    back.querySelector('button').onclick = done;
+    const t = setTimeout(done, good ? 3500 : 5500);
+  });
+}
+
+// ================= ROUND 1: LOGO =================
+function logoQ(v) {
+  q = v; busy = false;
+  show('logo');
+  $('logoStage').textContent = `Logo ${v.index}/${v.count}`;
+  $('logoImg').src = v.image;
+  $('answer').value = '';
+  renderTries();
+  setHint(v.hint, v.hintInMs);
+  runTimer($('logoShift'), $('logoSecs'), () => endStep('timeout'));
+  setTimeout(() => { if (q === v) $('answer').focus({ preventScroll: true }); }, 60);
+}
+function renderTries() { $('tries').innerHTML = `Tries left: <b>${'🟥'.repeat(q.triesLeft)}${'⬛'.repeat(q.maxTries - q.triesLeft)}</b>`; }
+function setHint(hint, inMs) {
+  const el = $('hintLine');
+  if (hint) { el.className = 'hintline'; el.textContent = hint; return; }
+  el.className = 'hintline waiting'; el.textContent = '💡 A letter hint unlocks in a few seconds…';
+  const my = q;
+  q.onTick = (left) => {
+    if (q !== my || q.hintAsked) return;
+    if (q.limitMs - left >= q.limitMs - q.remainingMs + inMs) {
+      q.hintAsked = true;
+      api('/api/hint', { step: q.step }).then((r) => { if (q === my && r.hint) { el.className = 'hintline'; el.textContent = r.hint; sound.tick(); } }).catch(() => {});
+    }
+  };
+}
+$('answerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (busy || !q || q.kind !== 'logo') return;
+  const guess = $('answer').value.trim();
+  if (!guess) return;
+  busy = true; $('answerBtn').disabled = true;
+  let r;
+  try { r = await api('/api/answer', { step: q.step, guess }); }
+  catch (err) { busy = false; $('answerBtn').disabled = false; if (err.status === 401) return lost(); q = null; return race(); }
+  $('answerBtn').disabled = false;
+  if (!r.done) {
+    busy = false; q.triesLeft = r.triesLeft; renderTries();
+    $('answerForm').classList.remove('shake'); void $('answerForm').offsetWidth; $('answerForm').classList.add('shake');
+    sound.wrong(); $('answer').select();
+    try { navigator.vibrate && navigator.vibrate([40, 30, 40]); } catch {}
+    return;
+  }
+  setScore(r.score);
+  await summary(r.summary);
+  next(r.summary);
+});
+$('logoSkip').onclick = () => endStep('skip');
+
+// ================= ROUND 2: PARTS =================
+const COLORS = ['#18e07a', '#ffb800', '#00e1ff', '#ff6b6b', '#c084fc', '#ff9a3d', '#38bdf8', '#a3e635', '#f472b6', '#facc15', '#2dd4bf', '#fb7185'];
+let drag = null, sel = null, anchor = null;
+function partsQ(v) {
+  q = v; busy = false; drag = sel = anchor = null;
+  show('parts');
+  const N = v.grid.length;
+  $('cells').style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  $('cells').style.gridTemplateRows = `repeat(${N}, 1fr)`;
+  $('cells').innerHTML = v.grid.map((row, r) => [...row].map((ch, c) => `<div class="cell" data-r="${r}" data-c="${c}">${ch}</div>`).join('')).join('');
+  $('marks').setAttribute('viewBox', `0 0 ${N} ${N}`);
+  drawMarks(); drawList();
+  runTimer($('partsShift'), $('partsSecs'), () => endStep('timeout'));
+}
+const pcolor = (i) => COLORS[i % COLORS.length];
+const lineSvg = (cells, color, extra = '') => { const a = cells[0], z = cells[cells.length - 1]; return `<line x1="${a[1] + .5}" y1="${a[0] + .5}" x2="${z[1] + .5}" y2="${z[0] + .5}" stroke="${color}" stroke-width=".8" ${extra}/>`; };
+function drawMarks(missed = []) {
+  if (!q || q.kind !== 'parts') return;
+  let s = q.words.filter((w) => w.found).map((w) => lineSvg(w.cells, pcolor(w.i), 'stroke-opacity=".6"')).join('');
+  s += missed.map((m) => lineSvg(m.cells, '#ff2a2a', 'stroke-opacity=".35" stroke-dasharray=".25 .2"')).join('');
+  const cur = drag || sel;
+  if (cur && cur.cells.length) s += lineSvg(cur.cells, cur.bad ? '#ff2a2a' : '#00b8d9', `stroke-opacity=".5" ${cur.bad ? 'class="sel-bad"' : ''}`);
+  $('marks').innerHTML = s;
+  for (const el of $('cells').children) el.classList.toggle('anchor', !!anchor && +el.dataset.r === anchor[0] && +el.dataset.c === anchor[1]);
+}
+function drawList() {
+  const found = q.words.filter((w) => w.found);
+  const left = q.words.length - found.length;
+  $('partlist').innerHTML = found.map((w) => `<span class="f" style="background:${pcolor(w.i)}">${esc(w.name)}</span>`).join('') +
+    (left ? `<span class="hiddenleft">🔍 ${left} car part${left === 1 ? '' : 's'} still hidden</span>` : '');
+  $('partsCount').textContent = `${found.length} of ${q.words.length} found`;
+}
+function cellAt(x, y) {
+  const rect = $('cells').getBoundingClientRect(), N = q.grid.length;
+  const c = Math.floor((x - rect.left) / (rect.width / N)), r = Math.floor((y - rect.top) / (rect.height / N));
+  return r >= 0 && c >= 0 && r < N && c < N ? [r, c] : null;
+}
+function lineCells(a, b) {
+  const N = q.grid.length, dr = b[0] - a[0], dc = b[1] - a[1];
+  if (!dr && !dc) return [a];
+  const step = Math.round(Math.atan2(dr, dc) / (Math.PI / 4));
+  const dirs = { 0: [0, 1], 1: [1, 1], 2: [1, 0], 3: [1, -1], 4: [0, -1], '-4': [0, -1], '-1': [-1, 1], '-2': [-1, 0], '-3': [-1, -1] };
+  const [sr, sc] = dirs[step], len = Math.max(Math.abs(dr), Math.abs(dc)), out = [];
+  for (let k = 0; k <= len; k++) { const r = a[0] + sr * k, c = a[1] + sc * k; if (r < 0 || c < 0 || r >= N || c >= N) break; out.push([r, c]); }
+  return out;
+}
+const board = $('board');
+board.addEventListener('pointerdown', (e) => {
+  if (busy || !q || q.kind !== 'parts') return;
+  const cell = cellAt(e.clientX, e.clientY); if (!cell) return;
+  board.setPointerCapture(e.pointerId);
+  sel = null; drag = { start: cell, cells: [cell], moved: false }; drawMarks();
+});
+board.addEventListener('pointermove', (e) => {
+  if (!drag || !drag.start) return;
+  const cell = cellAt(e.clientX, e.clientY); if (!cell) return;
+  const cells = lineCells(drag.start, cell);
+  if (cells.length !== drag.cells.length || cells[cells.length - 1] + '' !== drag.cells[drag.cells.length - 1] + '') { drag.cells = cells; if (cells.length > 1) drag.moved = true; drawMarks(); }
+});
+board.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.moved && d.cells.length > 1) { anchor = null; return select(d.cells); }
+  const tap = d.start;
+  if (anchor && (anchor[0] !== tap[0] || anchor[1] !== tap[1])) { const cells = lineCells(anchor, tap); anchor = null; if (cells.length > 1) return select(cells); }
+  else anchor = anchor ? null : tap;
+  drawMarks();
+});
+board.addEventListener('pointercancel', () => { drag = null; drawMarks(); });
+function flash(text, color) { const f = document.createElement('div'); f.className = 'flash'; f.textContent = text; f.style.background = color; document.body.appendChild(f); setTimeout(() => f.remove(), 1200); }
+async function select(cells) {
+  if (busy) return;
+  const a = cells[0], z = cells[cells.length - 1];
+  sel = { cells }; drawMarks();
+  let r;
+  try { r = await api('/api/select', { step: q.step, r1: a[0], c1: a[1], r2: z[0], c2: z[1] }); }
+  catch (err) { sel = null; drawMarks(); if (err.status === 401) return lost(); if (err.status === 409) { q = null; return race(); } return; }
+  if (r.found) {
+    sel = null;
+    const w = q.words.find((x) => x.i === r.i); Object.assign(w, { found: true, name: r.name, cells: r.cells });
+    setScore(r.score); drawMarks(); drawList();
+    flash(`+${rules.scoring.part} · ${r.name.toUpperCase()}`, pcolor(r.i)); sound.correct();
+    try { navigator.vibrate && navigator.vibrate(25); } catch {}
+    if (r.done) { busy = true; await sleep(500); await summary(r.summary); return next(r.summary); }
+  } else if (r.summary) { sel = null; busy = true; setScore(r.score); await summary(r.summary); return next(r.summary); }
+  else { sel = { cells, bad: true }; drawMarks(); sound.wrong(); setTimeout(() => { if (sel && sel.bad) { sel = null; drawMarks(); } }, 450); }
+}
+$('partsSkip').onclick = async () => {
+  if (busy || !q) return;
+  const left = q.words.filter((w) => !w.found).length;
+  if (await GP.ask('Finish this round?', `${left} part${left === 1 ? '' : 's'} still hidden. You keep the points you’ve got.`, 'Finish')) endStep('skip');
+};
+
+// ================= ROUND 3: MOVIE =================
+let tiles = [], picked = null, mdrag = null, sending = false, pendingSend = false;
+function movieQ(v) {
+  q = v; busy = false; picked = null; mdrag = null;
+  tiles = [...v.tiles];
+  show('movie');
+  renderCubes(v.ok);
+  runTimer($('movieShift'), $('movieSecs'), () => endStep('timeout'));
+}
+function renderCubes(ok = []) {
+  const longest = Math.max(...q.groups);
+  const avail = Math.min(window.innerWidth, 480) - 28 - 28;
+  const size = Math.max(30, Math.min(52, Math.floor((avail - (longest - 1) * 6) / longest)));
+  $('words').style.setProperty('--cube', size + 'px');
+  let pos = 0;
+  $('words').innerHTML = q.groups.map((len, g) => {
+    const html = tiles.slice(pos, pos + len).map((ch, k) => { const i = pos + k; return `<div class="cube ${picked === i ? 'sel' : ''}" data-i="${i}" style="--rot:${(((i * 37) % 7) - 3)}deg">${ch}</div>`; }).join('');
+    pos += len;
+    return `<div class="wordrow ${ok[g] ? 'ok' : ''}">${html}</div>`;
+  }).join('');
+}
+function swap(i, j) {
+  if (i === j) return;
+  [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+  picked = null; sound.tick();
+  renderCubes(q.ok || []);
+  document.querySelectorAll(`.cube[data-i="${i}"], .cube[data-i="${j}"]`).forEach((c) => c.classList.add('swapped'));
+  sendArrangement();
+}
+async function sendArrangement() {
+  if (sending) { pendingSend = true; return; }
+  sending = true;
+  const my = q;
+  try {
+    const r = await api('/api/arrange', { step: q.step, tiles: tiles.join('') });
+    if (q !== my) return;
+    q.ok = r.ok || q.ok;
+    if (r.done) { busy = true; setScore(r.score); renderCubes(q.ok || [true, true, true]); await sleep(400); await summary(r.summary); return next(r.summary); }
+    renderCubes(q.ok);
+  } catch (err) { if (err.status === 401) return lost(); if (err.status === 409) { q = null; return race(); } }
+  finally { sending = false; if (pendingSend && q === my && !busy) { pendingSend = false; sendArrangement(); } }
+}
+const words = $('words');
+words.addEventListener('pointerdown', (e) => {
+  const c = e.target.closest('.cube'); if (!c || busy || !q || q.kind !== 'movie') return;
+  words.setPointerCapture(e.pointerId);
+  mdrag = { i: +c.dataset.i, x: e.clientX, y: e.clientY, moved: false, ghost: null, target: null };
+});
+words.addEventListener('pointermove', (e) => {
+  if (!mdrag) return;
+  if (!mdrag.moved && Math.hypot(e.clientX - mdrag.x, e.clientY - mdrag.y) > 8) {
+    mdrag.moved = true;
+    const src = words.querySelector(`.cube[data-i="${mdrag.i}"]`);
+    const g = src.cloneNode(true); g.classList.add('ghost'); g.classList.remove('sel');
+    document.body.appendChild(g); mdrag.ghost = g; src.style.opacity = '.3';
+  }
+  if (mdrag.moved) {
+    const s = parseFloat(getComputedStyle(words).getPropertyValue('--cube')) || 44;
+    mdrag.ghost.style.left = e.clientX - s / 2 + 'px'; mdrag.ghost.style.top = e.clientY - s / 2 + 'px';
+    const el = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x.classList && x.classList.contains('cube') && !x.classList.contains('ghost'));
+    const t = el ? +el.dataset.i : null;
+    if (t !== mdrag.target) { words.querySelectorAll('.cube.target').forEach((x) => x.classList.remove('target')); if (el && t !== mdrag.i) el.classList.add('target'); mdrag.target = t; }
+  }
+});
+function endDrag() {
+  if (!mdrag) return;
+  const d = mdrag; mdrag = null;
+  if (d.ghost) d.ghost.remove();
+  if (d.moved) {
+    words.querySelectorAll('.cube').forEach((x) => { x.style.opacity = ''; x.classList.remove('target'); });
+    if (d.target !== null && d.target !== d.i) swap(d.i, d.target);
+    return;
+  }
+  // tap: pick, then tap another to swap
+  if (picked === null) { picked = d.i; renderCubes(q.ok || []); sound.tick(); }
+  else if (picked === d.i) { picked = null; renderCubes(q.ok || []); }
+  else swap(picked, d.i);
+}
+words.addEventListener('pointerup', endDrag);
+words.addEventListener('pointercancel', () => { if (mdrag?.ghost) mdrag.ghost.remove(); mdrag = null; renderCubes(q?.ok || []); });
+$('movieSkip').onclick = async () => { if (!busy && q && await GP.ask('Give up the movie?', 'You’ll score 0 for this round.', 'Give up')) endStep('skip'); };
+
+// ================= LIVE POSITION (top 5 alerts) =================
+function startMeTicker() {
+  if (meT) return;
+  const tick = async () => {
+    try {
+      const me = await api('/api/me');
+      if (me.status === 'ended') { meT = null; if (!busy) { q = null; cancelAnimationFrame(raf); return ended(me); } }
+      updatePos(me);
+    } catch {}
+    meT = setTimeout(tick, 5000);
+  };
+  meT = setTimeout(tick, 2500);
+}
+function updatePos(me) {
+  const top5 = me.rank <= 5 && me.players > 1 && me.score > 0;
+  document.querySelectorAll('.pos').forEach((el) => {
+    el.classList.toggle('hidden', !top5);
+    el.textContent = `P${me.rank}${me.gapAhead !== null && me.gapAhead >= 0 && me.rank > 1 ? ` · −${me.gapAhead}` : ''}`;
+  });
+  if (top5 && me.rank !== lastRank) {
+    const msg = me.rank === 1
+      ? `🥇 <span>You’re leading the race!${me.gapBehind !== null ? ` P2 is ${me.gapBehind} pts behind.` : ''}</span>`
+      : `🏎️ <span>You’re in <b>P${me.rank}</b>. Only ${me.rank - 1} driver${me.rank - 1 === 1 ? '' : 's'} ahead of you${me.gapAhead !== null ? `, ${me.gapAhead} pts to P${me.rank - 1}` : ''}!</span>`;
+    GP.toast(msg, 'amber', 3200);
+  }
+  lastRank = top5 ? me.rank : null;
+}
+
+// ================= FINISH =================
+function statsHtml(me) {
+  return `<div class="stat"><b>${me.score}</b><span>points</span></div><div class="stat"><b>${me.logos}/${rules?.logos || 10}</b><span>logos</span></div><div class="stat"><b>${me.parts}</b><span>parts</span></div><div class="stat"><b>${me.movie ? '✓' : '✗'}</b><span>movie</span></div>`;
+}
+async function finished() {
+  show('done'); cancelAnimationFrame(raf); clearTimeout(meT); meT = null;
+  try {
+    const me = await api('/api/me');
+    if (me.status === 'ended') return ended(me);
+    $('doneStats').innerHTML = statsHtml(me);
+    $('doneRank').textContent = `P${me.rank}`;
+    if (me.rank !== lastRank && me.rank <= 5) updatePos(me);
+  } catch (err) { if (err.status === 401) return lost(); }
+  pollT = setTimeout(finished, 4000);
+}
+let celebrated = false;
+async function ended(me) {
+  show('ended'); cancelAnimationFrame(raf); clearTimeout(meT); meT = null;
+  try { me = me || await api('/api/me'); }
+  catch (err) { if (err.status === 401) return lost(); pollT = setTimeout(() => ended(null), 4000); return; }
+  $('endRank').textContent = `P${me.rank}`;
+  $('endTitle').textContent = me.rank === 1 ? 'Champion! 🏆' : me.rank <= 3 ? 'Podium finish! 🍾' : 'Race over 🏁';
+  $('endStats').innerHTML = statsHtml(me);
+  $('endTop').innerHTML = (me.top || []).map((t) => `<li class="${t.me ? 'me' : ''}"><span>P${t.rank}</span><span class="avatar">${esc(t.emoji)}</span><span class="nm">${esc(t.name)}</span><span>${t.score}</span></li>`).join('');
+  if (me.rank <= 3 && !celebrated) { celebrated = true; GP.confetti(110); sound.win(); }
+  pollT = setTimeout(async () => {
+    try { const st = await api('/api/status'); if (st.gameId !== session.gameId) return lost(); } catch {}
+    ended(null);
+  }, 6000);
+}
+
+// ================= BOOT =================
+(async function boot() {
+  const st = await refreshStatus();
+  const saved = load();
+  if (st && saved && saved.gameId === st.gameId) {
+    session = saved;
+    try { await api('/api/lobby'); setAv(); if (st.status !== 'lobby') ignitionShown = true; return lobbyLoop(); } catch { session = null; save(null); }
+  }
+  joinScreen();
+})();
+window.addEventListener('resize', () => { if (q && q.kind === 'movie' && !mdrag) renderCubes(q.ok || []); });
+</script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grand Prix · Race Control</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overflow-x: hidden; }
+  .wrap { max-width: 1680px; margin: 0 auto; padding: 22px 32px 30px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
+  header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  header .brand { font-size: 30px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 15px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--edge); }
+  .status::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+  .status.lobby { color: var(--yellow); } .status.tour { color: var(--cyan); }
+  .status.live { color: var(--green); } .status.live::before { animation: pulse 1.2s infinite; }
+  .status.ended { color: #ff8a80; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .clock { font-weight: 900; font-style: italic; font-size: 30px; font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+  .ctrl { display: flex; gap: 10px; align-items: center; }
+  .iconbtn { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--edge-hi); font-size: 18px; }
+  .view { flex: 1; display: none; }
+  .view.on { display: flex; }
+
+  /* ====== lobby ====== */
+  #vLobby { display: none; gap: 22px; }
+  #vLobby.on { display: grid; grid-template-columns: 440px 1fr; }
+  .qrpanel { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+  .qrpanel .kicker { font-size: 16px; }
+  .qrpanel h2 { margin: 0; font-size: 34px; }
+  .qrbox { align-self: center; padding: 16px; background: #fff; border-radius: 22px; box-shadow: 0 0 0 1px rgba(255,255,255,.4), 0 30px 60px -10px rgba(0,0,0,.8), 0 0 80px rgba(60,200,255,.12); }
+  .qrbox img { display: block; width: 320px; height: 320px; image-rendering: pixelated; }
+  .url { font-weight: 700; font-size: 20px; color: #fff; word-break: break-all; text-align: center; }
+  .counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .count { padding: 14px 8px; border-radius: 16px; background: rgba(6,10,16,.55); box-shadow: inset 0 0 0 1px var(--edge); text-align: center; }
+  .count b { display: block; font-weight: 900; font-style: italic; font-size: 38px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .count span { color: var(--mist); font-size: 14px; }
+  .count.g b { color: var(--green); } .count.a b { color: var(--yellow); } .count.r b { color: #ff8a80; }
+  .grid-area { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .drivers { padding: 24px 28px; flex: 1; display: flex; flex-direction: column; }
+  .drivers h3 { margin: 0 0 18px; font-size: 28px; display: flex; gap: 14px; align-items: baseline; }
+  .drivers h3 small { font-style: normal; font-weight: 600; color: var(--mist); font-size: 17px; letter-spacing: 0; }
+  .grid-drivers { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 30px 26px; align-content: start; padding: 12px 6px 6px; counter-reset: pos; }
+  .drv { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 12px 12px; border: 2px solid rgba(255,255,255,.8); border-bottom: 0; border-radius: 2px; animation: drvIn .5s cubic-bezier(.2,1.4,.4,1) both; counter-increment: pos; }
+  .drv:nth-child(even) { transform: translateY(18px); }
+  .drv::before { content: 'P' counter(pos); position: absolute; top: -12px; left: 10px; padding: 0 8px; background: #172030; font-weight: 700; font-size: 14px; color: var(--mist); }
+  .drv .avatar { width: 52px; height: 52px; font-size: 31px; flex: none; }
+  .drv .nm { font-weight: 700; font-size: 19px; line-height: 1.15; word-break: break-word; }
+  .drv .tag { font-size: 13px; color: var(--yellow); font-weight: 600; }
+  .drv .x { position: absolute; top: 4px; right: 6px; color: var(--mist); opacity: 0; font-size: 14px; }
+  .drv:hover .x { opacity: 1; } .drv .x:hover { color: var(--signal-hi); }
+  @keyframes drvIn { from { opacity: 0; translate: 0 18px; } }
+  .pending { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--edge); }
+  .pending .k { width: 100%; font-size: 16px; font-weight: 700; color: var(--mist); margin-bottom: 4px; }
+  .pending span { padding: 6px 14px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--edge-hi); color: #c9d2e0; font-weight: 600; font-size: 15px; }
+  .empty { color: var(--mist); font-size: 20px; text-align: center; padding: 50px 0; grid-column: 1 / -1; }
+
+  .start-zone { display: flex; align-items: center; gap: 30px; padding: 22px 30px; }
+  .start-zone .txt { flex: 1; }
+  .start-zone .txt b { font-size: 24px; font-weight: 900; font-style: italic; }
+  .start-zone .txt p { margin: 6px 0 0; color: var(--mist); font-size: 16px; max-width: 46ch; }
+  /* machined push-to-start button */
+  .engine-btn { position: relative; width: 168px; height: 168px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: conic-gradient(from 0deg, #f2f4f7, #8c96a3, #eef1f5, #7c8693, #f2f4f7, #9aa3af, #f2f4f7);
+    box-shadow: 0 18px 40px rgba(0,0,0,.75), inset 0 0 0 1px rgba(255,255,255,.7), inset 0 -4px 10px rgba(0,0,0,.35); transition: transform .1s; }
+  .engine-btn::before { content: ''; position: absolute; inset: 11px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #2a2f38, #0a0c10 72%); box-shadow: inset 0 3px 8px rgba(0,0,0,.8); }
+  .engine-btn::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(255,59,47,.55); animation: ring 1.8s ease-out infinite; }
+  @keyframes ring { from { transform: scale(.94); opacity: 1; } to { transform: scale(1.16); opacity: 0; } }
+  .engine-btn .inner { position: relative; z-index: 1; width: 126px; height: 126px; border-radius: 50%; display: grid; place-items: center; align-content: center; gap: 2px;
+    background: radial-gradient(circle at 38% 28%, #3c434f 0%, #16191f 55%, #0b0d11 100%);
+    box-shadow: inset 0 0 0 3px #ff2a1c, inset 0 0 26px rgba(255,42,28,.55), 0 0 34px rgba(255,42,28,.45), inset 0 8px 14px rgba(255,255,255,.08); }
+  .engine-btn .t1, .engine-btn .t3 { font-weight: 700; font-size: 13px; color: #c9d2e0; letter-spacing: .14em; }
+  .engine-btn .t2 { font-weight: 900; font-style: italic; font-size: 30px; color: #ff4a3d; text-shadow: 0 0 14px rgba(255,59,47,.9); line-height: 1; }
+  .engine-btn:active { transform: scale(.96); }
+  .engine-btn:active .inner { box-shadow: inset 0 0 0 3px #ff2a1c, inset 0 0 40px rgba(255,42,28,.9), 0 0 60px rgba(255,42,28,.7); }
+  .engine-btn:disabled::after { animation: none; opacity: 0; }
+
+  /* ====== briefing ====== */
+  #vTour { flex-direction: column; gap: 26px; align-items: center; justify-content: center; }
+  #vTour .head { text-align: center; }
+  #vTour .head .kicker { font-size: 18px; color: var(--signal-hi); font-weight: 700; }
+  #vTour .head h2 { margin: 6px 0 0; font-size: 52px; }
+  .cards3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; perspective: 1600px; }
+  .flip { position: relative; min-height: 460px; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.3,1.25,.5,1); cursor: pointer; }
+  .flip.revealed { transform: rotateY(180deg); }
+  .flip .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .flip .back-side { transform: rotateY(180deg); }
+  .flip .front-side { display: grid; place-items: center; border-radius: var(--r-lg);
+    background: radial-gradient(circle at 50% 40%, rgba(225,6,0,.18), transparent 60%), repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 7px), linear-gradient(180deg, #1b2434, #0f141d);
+    box-shadow: inset 0 0 0 1px var(--edge-hi), 0 30px 60px -16px rgba(0,0,0,.7); }
+  .flip .front-side .q { text-align: center; }
+  .flip .front-side .q b { display: block; font-weight: 900; font-style: italic; font-size: 120px; line-height: 1; color: #fff; text-shadow: 0 0 40px rgba(225,6,0,.6); }
+  .flip .front-side .q span { color: var(--mist); font-size: 17px; }
+  .flip .bcard { height: 100%; }
+  .flip.current .bcard { box-shadow: inset 0 0 0 2px var(--signal-hi), 0 30px 80px -10px rgba(225,6,0,.35); }
+  .tour-actions { display: flex; gap: 14px; align-items: center; }
+  .go-btn { min-height: 68px; font-size: 24px; padding: 0 48px; border-radius: 18px; animation: glow 1.4s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 50px rgba(47,210,107,.8); } }
+
+  /* ====== live: timing tower ====== */
+  #vLive { flex-direction: column; gap: 18px; }
+  .ticker { overflow: hidden; border-radius: 999px; background: rgba(6,10,16,.6); box-shadow: inset 0 0 0 1px var(--edge); }
+  .ticker div { display: inline-block; white-space: nowrap; padding: 10px 0; font-weight: 700; font-size: 17px; color: var(--yellow); animation: marquee 30s linear infinite; padding-left: 100%; }
+  @keyframes marquee { to { transform: translateX(-100%); } }
+  .stages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .stg { padding: 16px 18px 14px; overflow: hidden; }
+  .stg .k { font-size: 15px; color: var(--mist); font-weight: 600; }
+  .stg b { display: block; font-weight: 900; font-style: italic; font-size: 46px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stg .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.07); margin-top: 10px; overflow: hidden; }
+  .stg .bar i { display: block; height: 100%; border-radius: 3px; transition: width .5s; }
+  .stg .ico { position: absolute; right: 16px; top: 14px; font-size: 26px; opacity: .9; }
+  .live-grid { display: grid; grid-template-columns: 1fr 300px; gap: 18px; flex: 1; min-height: 0; }
+  .board { padding: 20px 22px; overflow: auto; max-height: calc(100vh - 330px); }
+  .board h3 { margin: 0 0 12px; font-size: 24px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 5px; }
+  th { text-align: left; font-size: 14px; color: var(--mist); padding: 0 12px 4px; font-weight: 600; }
+  td { padding: 10px 12px; font-weight: 700; font-size: 18px; background: rgba(8,12,19,.7); }
+  td:first-child { border-radius: 10px 0 0 10px; width: 64px; text-align: center; font-weight: 900; font-style: italic; font-size: 20px; background: #f4efe4; color: #0d131d; }
+  td:last-child { border-radius: 0 10px 10px 0; }
+  tr.p1 td:first-child { background: var(--purple); color: #fff; }
+  tr.p1 td { background: rgba(163,59,255,.16); }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .who .stripe { width: 4px; height: 30px; border-radius: 2px; flex: none; }
+  .who .avatar { width: 36px; height: 36px; font-size: 21px; flex: none; }
+  .stage-pill { font-size: 15px; font-weight: 600; color: #c9d2e0; white-space: nowrap; }
+  .stage-pill.done { color: var(--green); }
+  .prog { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; min-width: 120px; }
+  .prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--signal), var(--yellow)); transition: width .5s; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .gap { color: var(--mist); font-weight: 600; }
+  .score { font-weight: 900; font-style: italic; font-size: 22px; color: #fff; }
+  .side { display: flex; flex-direction: column; gap: 18px; }
+  .side .panel { padding: 18px; }
+  .miniqr { text-align: center; }
+  .miniqr .kicker { font-size: 16px; color: var(--flood); font-weight: 700; }
+  .miniqr img { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: 14px; }
+  .miniqr .url { font-size: 14px; margin-top: 8px; }
+  .notjoined .kicker { font-size: 16px; color: var(--flood); font-weight: 700; }
+  .notjoined span { display: inline-block; margin: 3px; padding: 5px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--edge-hi); color: #c9d2e0; font-size: 14px; font-weight: 600; }
+
+  /* ====== ended ====== */
+  #vEnd { flex-direction: column; gap: 20px; }
+  #vEnd .kicker { font-size: 18px; color: var(--signal-hi); font-weight: 700; }
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 24px; padding-top: 10px; }
+  .pod { text-align: center; width: 250px; }
+  .pod .avatar { width: 96px; height: 96px; font-size: 58px; margin-bottom: 10px; }
+  .pod.p1 .avatar { width: 124px; height: 124px; font-size: 74px; box-shadow: 0 0 0 4px var(--purple), 0 0 50px rgba(163,59,255,.6); }
+  .pod .nm { font-weight: 900; font-style: italic; font-size: 30px; word-break: break-word; }
+  .pod .pts { color: var(--mist); margin: 4px 0 12px; font-size: 16px; }
+  .pod .block { border-radius: 10px 10px 0 0; display: grid; place-items: center; font-weight: 900; font-style: italic; font-size: 64px; color: #0d131d; box-shadow: inset 0 2px 0 rgba(255,255,255,.6); }
+  .pod.p1 .block { height: 200px; background: linear-gradient(180deg, #ffe48a, #e7b100); }
+  .pod.p2 .block { height: 150px; background: linear-gradient(180deg, #f7f9fc, #aab3bf); }
+  .pod.p3 .block { height: 110px; background: linear-gradient(180deg, #f0b083, #b8622b); }
+  .pod.p1 { animation: rise .8s .7s both; } .pod.p2 { animation: rise .8s .35s both; } .pod.p3 { animation: rise .8s both; }
+  @keyframes rise { from { transform: translateY(80px); opacity: 0; } }
+
+  #login { max-width: 420px; margin: 18vh auto 0; display: flex; flex-direction: column; gap: 16px; text-align: center; padding: 32px; }
+  #login .brand { font-size: 32px; justify-content: center; }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<form id="login" class="hidden panel redline">
+  <div class="brand"><span class="flag"></span><span>GRAND <span class="gp">PRIX</span></span></div>
+  <div class="kicker">Race control: enter your host PIN</div>
+  <input id="pin" class="input center" inputmode="numeric" placeholder="Host PIN" autocomplete="off">
+  <div class="error" id="loginErr"></div>
+  <button class="btn" type="submit">Enter race control</button>
+</form>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div class="brand"><span class="flag"></span><span>GRAND <span class="gp">PRIX</span></span></div>
+    <span class="status" id="status"></span>
+    <span class="clock" id="clock"></span>
+    <div class="spacer"></div>
+    <div class="ctrl">
+      <button class="iconbtn" id="mute" title="Sound">🔊</button>
+      <a class="btn ghost small" href="/admin.html" target="_blank">⚙️ Setup</a>
+      <button class="btn small hidden" id="endBtn">■ End race</button>
+      <button class="btn ghost small hidden" id="resetBtn">↺ New race</button>
+    </div>
+  </header>
+
+  <!-- LOBBY -->
+  <section class="view" id="vLobby">
+    <div class="panel redline qrpanel">
+      <div class="kicker">Scan with your phone camera</div>
+      <h2>Join the grid</h2>
+      <div class="qrbox"><img id="qr" alt="QR code to join"></div>
+      <div class="url" id="url"></div>
+      <div class="counts">
+        <div class="count g"><b id="cJoined">0</b><span>On the grid</span></div>
+        <div class="count a"><b id="cPending">0</b><span>Yet to join</span></div>
+        <div class="count r"><b id="cBonks">0</b><span>Bonks 🏏</span></div>
+      </div>
+    </div>
+    <div class="grid-area">
+      <div class="panel drivers">
+        <h3>Starting grid <small id="drvSub"></small></h3>
+        <div class="grid-drivers" id="drivers"></div>
+        <div class="pending" id="pending"></div>
+      </div>
+      <div class="panel start-zone">
+        <button class="engine-btn" id="startBtn"><span class="inner"><span class="t1">ENGINE</span><span class="t2">START</span><span class="t3">STOP</span></span></button>
+        <div class="txt"><b>Everyone in? Start the engine.</b><p>The race briefing opens on every phone. Late drivers can still scan in.</p></div>
+        <div class="road" style="width:320px;flex:none"><div class="car" id="lobbyCar"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRIEFING -->
+  <section class="view" id="vTour">
+    <div class="head"><div class="kicker">Race briefing</div><h2>Three rounds. One champion.</h2></div>
+    <div class="cards3" id="cards3"></div>
+    <div class="tour-actions" id="tourActions"></div>
+  </section>
+
+  <!-- LIVE -->
+  <section class="view" id="vLive">
+    <div class="ticker"><div id="tickerText"></div></div>
+    <div class="stages" id="stages"></div>
+    <div class="live-grid">
+      <div class="panel board"><h3>Live timing</h3><table><thead><tr><th>Pos</th><th>Driver</th><th>Now on</th><th>Progress</th><th class="num">Logos</th><th class="num">Parts</th><th class="num">Movie</th><th class="num">Gap</th><th class="num">Points</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="side">
+        <div class="panel miniqr"><div class="kicker" style="margin-bottom:10px">Running late? Scan in</div><img id="qr2" alt="QR code"><div class="url" id="url2"></div></div>
+        <div class="panel notjoined"><div class="kicker" style="margin-bottom:8px">Not on the grid yet</div><div id="nj"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ENDED -->
+  <section class="view" id="vEnd">
+    <div style="text-align:center"><div class="kicker">Chequered flag</div><h2 style="margin:6px 0 0;font-size:52px">Final classification</h2></div>
+    <div class="podium" id="podium"></div>
+    <div class="panel board" style="max-height:none"><table><thead><tr><th>Pos</th><th>Driver</th><th class="num">Logos</th><th class="num">Parts</th><th class="num">Movie</th><th class="num">Time</th><th class="num">Points</th></tr></thead><tbody id="endRows"></tbody></table></div>
+  </section>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { esc, sleep, sound, secs } = GP;
+const PIN_KEY = 'gp.pin';
+let pin = null; try { pin = localStorage.getItem(PIN_KEY); } catch {}
+let D = null, pollT = null, prevStatus = null, driversKey = '', tourShownStep = -1, igniting = false, counting = false;
+
+const api = (path, opts = {}) => GP.api(path, { ...opts, headers: { 'x-host-pin': pin || '' } });
+const post = (path, body = {}) => api(path, { method: 'POST', body });
+
+$('mute').textContent = GP.isMuted() ? '🔇' : '🔊';
+$('mute').onclick = () => { GP.setMuted(!GP.isMuted()); $('mute').textContent = GP.isMuted() ? '🔇' : '🔊'; };
+GP.backdrop($('bg'));
+$('lobbyCar').innerHTML = GP.carSVG('#e10600', true);
+document.addEventListener('pointerdown', () => GP.unlock(), { once: true });
+
+$('login').addEventListener('submit', async (e) => {
+  e.preventDefault(); pin = $('pin').value.trim();
+  try { await post('/api/host/login'); try { localStorage.setItem(PIN_KEY, pin); } catch {} begin(); }
+  catch (err) { $('loginErr').textContent = err.message; }
+});
+function begin() { $('login').classList.add('hidden'); $('app').classList.remove('hidden'); poll(); }
+
+async function poll() {
+  clearTimeout(pollT);
+  try { render(await api('/api/host/overview')); }
+  catch (err) { if (err.status === 401) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); return; } }
+  pollT = setTimeout(poll, D && D.status === 'live' ? 1500 : 2000);
+}
+function view(id) { for (const v of document.querySelectorAll('.view')) v.classList.toggle('on', v.id === id); }
+
+function render(d) {
+  D = d;
+  const st = d.status;
+  $('status').className = 'status ' + st;
+  $('status').textContent = { lobby: 'Pit lane open', tour: 'Briefing', live: GP.serverNow() < d.goAt ? 'Lights' : 'Race live', ended: 'Finished' }[st];
+  $('endBtn').classList.toggle('hidden', st !== 'live');
+  $('resetBtn').classList.toggle('hidden', st === 'live' || (st === 'lobby' && !d.leaderboard.length));
+  for (const id of ['qr', 'qr2']) if ($(id).src !== d.qr) $(id).src = d.qr;
+  const short = d.joinUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  $('url').textContent = short; $('url2').textContent = short;
+
+  if (st === 'lobby') renderLobby(d);
+  else if (st === 'tour') { if (!igniting) renderTour(d); }
+  else if (st === 'live') {
+    if (GP.serverNow() < d.goAt && !counting) { counting = true; GP.countdown(d.goAt).then(() => (counting = false)); }
+    renderLive(d);
+  } else if (st === 'ended') renderEnd(d);
+  if (prevStatus === 'live' && st === 'ended') { GP.confetti(180); sound.win(); }
+  prevStatus = st;
+}
+
+// ---------------- lobby ----------------
+function renderLobby(d) {
+  view('vLobby');
+  tourShownStep = -1;
+  const lb = d.leaderboard;
+  $('cJoined').textContent = lb.length; $('cPending').textContent = d.pending.length; $('cBonks').textContent = d.bonksTotal;
+  $('drvSub').textContent = `${lb.length} on the grid${d.rosterSize ? ` · ${d.rosterSize} invited` : ''}`;
+  const key = lb.map((p) => p.id + p.emoji).join() + '|' + d.pending.join();
+  if (key === driversKey) return;
+  driversKey = key;
+  $('drivers').innerHTML = lb.length
+    ? lb.slice().sort((a, b) => a.joinedAt - b.joinedAt).map((p) => `<div class="drv"><span class="avatar">${esc(p.emoji)}</span><div><div class="nm">${esc(p.name)}</div>${p.custom ? '<div class="tag">✨ added themselves</div>' : ''}</div><button class="x" data-kick="${p.id}" title="Remove">✕</button></div>`).join('')
+    : '<div class="empty">Waiting for the first driver to scan the code</div>';
+  $('pending').innerHTML = d.pending.length ? `<div class="k">Yet to join (${d.pending.length})</div>` + d.pending.map((n) => `<span>${esc(n)}</span>`).join('') : (d.rosterSize ? '<div class="k" style="color:var(--green)">Everyone on the list is on the grid ✓</div>' : '');
+}
+$('drivers').addEventListener('click', async (e) => {
+  const id = e.target.dataset.kick; if (!id) return;
+  if (!(await GP.ask('Remove this driver?', 'They can join again from their phone.', 'Remove'))) return;
+  await api('/api/host/players/' + id, { method: 'DELETE' }).catch((err) => GP.toast(err.message, 'red'));
+  driversKey = ''; poll();
+});
+
+// ---------------- ignition + briefing ----------------
+$('startBtn').onclick = async () => {
+  GP.unlock();
+  if (!D.leaderboard.length && !(await GP.ask('No drivers yet', 'Nobody has joined. Start anyway?', 'Start'))) return;
+  $('startBtn').disabled = true;
+  try {
+    igniting = true;
+    sound.engineStart();
+    const ig = ignitionOverlay();
+    await post('/api/host/ignite');
+    await sleep(3200); ig.remove(); igniting = false;
+    poll();
+  } catch (err) { igniting = false; GP.toast(err.message, 'red'); }
+  finally { $('startBtn').disabled = false; }
+};
+function ignitionOverlay() {
+  const o = document.createElement('div');
+  o.className = 'ignite';
+  const gauge = (lbl, max) => `<div class="gauge"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="#0b0c10" stroke="#2a2e38" stroke-width="4"/>
+    ${Array.from({ length: 11 }, (_, i) => { const a = (-130 + i * 26) * Math.PI / 180, r1 = 80, r2 = i > 7 ? 62 : 70; return `<line x1="${100 + r1 * Math.sin(a)}" y1="${100 - r1 * Math.cos(a)}" x2="${100 + r2 * Math.sin(a)}" y2="${100 - r2 * Math.cos(a)}" stroke="${i > 7 ? '#ff2a2a' : '#cfd3dc'}" stroke-width="${i > 7 ? 4 : 3}"/>` + (i % 2 === 0 ? `<text x="${100 + 52 * Math.sin(a)}" y="${104 - 52 * Math.cos(a)}" fill="#8d94a6" font-size="11" text-anchor="middle" font-family="Orbitron">${Math.round(max * i / 10)}</text>` : ''); }).join('')}
+    <g class="needle"><line x1="100" y1="100" x2="100" y2="28" stroke="#ff2a2a" stroke-width="4" stroke-linecap="round"/></g><circle cx="100" cy="100" r="10" fill="#e6e9ee"/></svg><div class="lbl">${lbl}</div></div>`;
+  o.innerHTML = `<div><div class="dash">${gauge('RPM ×1000', 10)}${gauge('KM/H', 300)}</div><div class="warn-lights">🔋 🛢️ ⚠️ 🌡️ 🅿️</div><div class="word">ENGINE START</div></div>`;
+  document.body.appendChild(o);
+  return o;
+}
+function renderTour(d) {
+  view('vTour');
+  const cards = GP.cards(d);
+  if (tourShownStep === -1) {
+    $('cards3').innerHTML = cards.map((c, i) => `<div class="flip" data-i="${i}">
+      <div class="face front-side"><div class="q"><b>${i + 1}</b><span>Round ${i + 1}</span></div></div>
+      <div class="face back-side"><div class="bcard"><div class="num">0${i + 1}</div><div class="icon">${c.icon}</div><div class="kicker">${c.kicker}</div><h2>${c.title}</h2><p>${c.text}</p><div class="chips">${c.chips.map((x) => `<span>${x}</span>`).join('')}</div><div class="score">⚡ ${c.score}</div><div class="tip">${c.tip}</div></div></div></div>`).join('');
+  }
+  if (tourShownStep !== d.tourStep) {
+    tourShownStep = d.tourStep;
+    [...$('cards3').children].forEach((f, i) => { f.classList.toggle('revealed', i <= d.tourStep); f.classList.toggle('current', i === d.tourStep); });
+    sound.whoosh();
+    $('tourActions').innerHTML = d.tourStep < 2
+      ? `<button class="btn chrome" id="nextCard">Show round ${d.tourStep + 2}</button>`
+      : `<button class="btn green go-btn" id="goBtn">🏁 Start the race</button>`;
+  }
+}
+$('cards3').addEventListener('click', (e) => {
+  const f = e.target.closest('.flip'); if (!f || !D || D.status !== 'tour') return;
+  const i = +f.dataset.i; if (i !== D.tourStep + 1) return;
+  setTour(i);
+});
+$('tourActions').addEventListener('click', async (e) => {
+  if (e.target.id === 'nextCard') setTour(D.tourStep + 1);
+  if (e.target.id === 'goBtn') {
+    e.target.disabled = true;
+    try { const r = await post('/api/host/go'); counting = true; GP.countdown(r.goAt).then(() => (counting = false)); poll(); }
+    catch (err) { GP.toast(err.message, 'red'); e.target.disabled = false; }
+  }
+});
+async function setTour(step) {
+  try { const r = await post('/api/host/tour', { step }); D.tourStep = r.tourStep; renderTour(D); } catch (err) { GP.toast(err.message, 'red'); }
+}
+
+// ---------------- live ----------------
+const TICKS = ['⚡ Answer fast to score more', '🏁 The fastest accurate driver wins', '🔧 Every part found is worth 100', '🎬 Unscramble the movie for 300 + speed bonus', '🟣 Top 5 drivers get live position alerts', '💡 Stuck on a logo? A letter hint appears after 15 seconds'];
+$('tickerText').textContent = TICKS.join('      •      ');
+const TEAM = ['#e10600', '#3cc8ff', '#ffc51e', '#2fd26b', '#a33bff', '#ff8700', '#f4efe4', '#ff66b2', '#00d2be', '#9aa3b0'];
+const teamColor = (name) => TEAM[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TEAM.length];
+const stageLabel = (p, n) => p.stage === 'done' ? '<span class="stage-pill done">🏁 Finished</span>' : p.stage === 'logo' ? `<span class="stage-pill">Logo ${Math.min(p.step + 1, n)} of ${n}</span>` : p.stage === 'parts' ? '<span class="stage-pill">Parts hunt</span>' : p.stage === 'movie' ? '<span class="stage-pill">Movie shuffle</span>' : '<span class="stage-pill">On the grid</span>';
+function renderLive(d) {
+  view('vLive');
+  const lb = d.leaderboard, n = d.logos, steps = n + 2;
+  const c = { logo: 0, parts: 0, movie: 0, done: 0 };
+  lb.forEach((p) => { if (c[p.stage] !== undefined) c[p.stage]++; else c.logo++; });
+  const total = Math.max(1, lb.length);
+  const tile = (k, v, ico, color) => `<div class="panel stg"><span class="ico">${ico}</span><div class="k">${k}</div><b>${v}</b><div class="bar"><i style="width:${100 * v / total}%;background:${color}"></i></div></div>`;
+  $('stages').innerHTML = tile('Badge hunt', c.logo, '🏷️', 'var(--signal)') + tile('Parts hunt', c.parts, '🔧', 'var(--yellow)') + tile('Movie shuffle', c.movie, '🎬', 'var(--cyan)') + tile('Finished', c.done, '🏁', 'var(--green)') + tile('Yet to join', d.pending.length, '⏳', 'var(--mist)');
+  const lead = lb.length ? lb[0].score : 0;
+  $('rows').innerHTML = lb.map((p) => `<tr class="p${p.rank}"><td>${p.rank}</td><td><div class="who"><span class="stripe" style="background:${teamColor(p.name)}"></span><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}</div></td>
+    <td>${stageLabel(p, n)}</td><td><div class="prog"><i style="width:${(100 * Math.min(p.step, steps) / steps).toFixed(0)}%"></i></div></td>
+    <td class="num">${p.logos}/${n}</td><td class="num">${p.parts}</td><td class="num">${p.movie ? '✓' : '–'}</td><td class="num gap">${p.rank === 1 ? 'Leader' : `−${lead - p.score}`}</td><td class="num score">${p.score}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No drivers yet</td></tr>';
+  $('nj').innerHTML = d.pending.length ? d.pending.map((x) => `<span>${esc(x)}</span>`).join('') : '<span style="border-color:rgba(24,224,122,.4);color:var(--green)">Everyone’s in ✓</span>';
+}
+$('endBtn').onclick = async () => {
+  const racing = D.leaderboard.filter((p) => !p.finished).length;
+  if (racing && !(await GP.ask('End the race now?', `${racing} driver(s) are still racing. Their remaining questions will score 0.`, 'End race'))) return;
+  try { await post('/api/host/end'); poll(); } catch (err) { GP.toast(err.message, 'red'); }
+};
+
+// ---------------- ended ----------------
+let endKey = '';
+function renderEnd(d) {
+  view('vEnd');
+  const lb = d.leaderboard, n = d.logos;
+  const key = JSON.stringify(lb.map((p) => [p.id, p.score]));
+  if (key === endKey) return; endKey = key;
+  const [a, b, c] = lb;
+  const pod = (p, k) => `<div class="pod p${k}"><span class="avatar">${esc(p.emoji)}</span><div class="nm">${esc(p.name)}</div><div class="pts">${p.score} pts · ${secs(p.totalMs)}</div><div class="block">${k}</div></div>`;
+  $('podium').innerHTML = (b ? pod(b, 2) : '') + (a ? pod(a, 1) : '') + (c ? pod(c, 3) : '');
+  $('endRows').innerHTML = lb.map((p) => `<tr class="p${p.rank}"><td>P${p.rank}</td><td><div class="who"><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}</div></td><td class="num">${p.logos}/${n}</td><td class="num">${p.parts}</td><td class="num">${p.movie ? '✅' : '–'}</td><td class="num">${secs(p.totalMs)}</td><td class="num score">${p.score}</td></tr>`).join('');
+}
+$('resetBtn').onclick = async () => {
+  if (D.leaderboard.length && !(await GP.ask('Start a new race?', 'This clears all drivers and scores. Everyone will need to join again.', 'New race'))) return;
+  try { await post('/api/host/reset'); driversKey = ''; endKey = ''; tourShownStep = -1; prevStatus = null; poll(); } catch (err) { GP.toast(err.message, 'red'); }
+};
+
+setInterval(() => {
+  if (!D) return;
+  if (D.status === 'live' && D.goAt) {
+    const s = Math.max(0, Math.floor((GP.serverNow() - D.goAt) / 1000));
+    $('clock').textContent = `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  } else $('clock').textContent = '';
+}, 500);
+
+if (pin) post('/api/host/login').then(begin).catch(() => $('login').classList.remove('hidden'));
+else $('login').classList.remove('hidden');
+</script>
+</body>
+</html>
