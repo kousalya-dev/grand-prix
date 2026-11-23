@@ -213,6 +213,18 @@
   .top li .avatar { width: 32px; height: 32px; font-size: 19px; }
   .top li .nm { flex: 1; }
   .top li.me { box-shadow: inset 3px 0 0 var(--purple), inset 0 0 0 1px var(--edge); }
+  .combo { position: relative; }
+  .combo-btn { text-align: left; cursor: pointer; padding-right: 44px; background-image: linear-gradient(45deg, transparent 50%, var(--mist) 50%), linear-gradient(135deg, var(--mist) 50%, transparent 50%); background-position: calc(100% - 24px) 50%, calc(100% - 18px) 50%; background-size: 6px 6px; background-repeat: no-repeat; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .combo-btn.placeholder { color: #5f6c82; font-weight: 400; }
+  .combo-panel { margin-top: 8px; border: 1px solid var(--edge-hi); border-radius: 14px; background: var(--pit); padding: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+  .combo-panel.hidden { display: none; }
+  .combo-list { margin-top: 8px; max-height: 260px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .combo-opt { display: block; width: 100%; text-align: left; padding: 12px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--flood); font: inherit; font-size: 16px; cursor: pointer; }
+  .combo-opt:hover, .combo-opt:active { background: rgba(255,255,255,.08); }
+  .combo-opt.sel { background: rgba(60,200,255,.16); }
+  .combo-opt:disabled { color: var(--mist); opacity: .55; cursor: not-allowed; }
+  .combo-opt.add { color: var(--yellow); font-weight: 700; }
+  .combo-empty { padding: 12px 14px; color: var(--mist); }
 </style>
 </head>
 <body>
@@ -231,7 +243,14 @@
     <form class="panel redline join-card" id="joinForm" autocomplete="off">
       <div>
         <h3>Who’s driving?</h3>
-        <select class="input" id="who"><option value="">Select your name…</option></select>
+        <select class="input" id="who" style="display:none" tabindex="-1" aria-hidden="true"><option value="">Select your name…</option></select>
+        <div class="combo" id="combo">
+          <button type="button" class="input combo-btn" id="comboBtn">Select your name…</button>
+          <div class="combo-panel hidden" id="comboPanel">
+            <input class="input" id="comboSearch" type="search" placeholder="🔍 Search your name…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <div class="combo-list" id="comboList"></div>
+          </div>
+        </div>
         <div id="customWrap" class="hidden" style="margin-top:10px">
           <input class="input" id="customName" maxlength="24" placeholder="Type your name" autocapitalize="words">
         </div>
@@ -401,14 +420,54 @@ $('who').onchange = () => {
     setTimeout(() => $('customName').focus(), 50);
   }
 };
+// ---- searchable name picker (hidden #who select stays the source of truth) ----
+let rosterNames = [], rosterSig = '';
+function comboLabel() {
+  const v = $('who').value;
+  const b = $('comboBtn');
+  b.textContent = v === '__add' ? '➕ My name isn’t here' : (v || 'Select your name…');
+  b.classList.toggle('placeholder', !v);
+}
+function renderCombo() {
+  const q = $('comboSearch').value.trim().toLowerCase();
+  const cur = $('who').value;
+  const list = rosterNames.filter((n) => !q || n.name.toLowerCase().includes(q));
+  $('comboList').innerHTML =
+    (list.length ? list.map((n) => `<button type="button" class="combo-opt${n.name === cur ? ' sel' : ''}" data-v="${esc(n.name)}" ${n.joined ? 'disabled' : ''}>${esc(n.name)}${n.joined ? ' (already in)' : ''}</button>`).join('')
+      : '<div class="combo-empty">No match. Try another spelling, or add your name below.</div>') +
+    '<button type="button" class="combo-opt add" data-v="__add">➕ My name isn’t here</button>';
+}
+function openCombo() {
+  $('comboPanel').classList.remove('hidden');
+  $('comboSearch').value = ''; renderCombo();
+  setTimeout(() => $('comboSearch').focus(), 30);
+}
+function closeCombo() { $('comboPanel').classList.add('hidden'); }
+$('comboBtn').onclick = () => ($('comboPanel').classList.contains('hidden') ? openCombo() : closeCombo());
+$('comboSearch').oninput = renderCombo;
+$('comboSearch').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); const f = $('comboList').querySelector('.combo-opt:not(:disabled):not(.add)'); if (f) f.click(); }
+  else if (e.key === 'Escape') closeCombo();
+});
+$('comboList').addEventListener('click', (e) => {
+  const o = e.target.closest('.combo-opt'); if (!o || o.disabled) return;
+  $('who').value = o.dataset.v;
+  $('who').onchange(); comboLabel(); closeCombo();
+});
+document.addEventListener('click', (e) => { if (!$('combo').contains(e.target)) closeCombo(); });
 async function loadRoster() {
   try {
     const r = await api('/api/roster');
+    const sig = JSON.stringify(r.names.map((n) => [n.name, !!n.joined]));
+    if (sig === rosterSig) return; // nothing changed: don't touch the DOM (this caused the flicker)
+    rosterSig = sig; rosterNames = r.names;
     const cur = $('who').value;
     $('who').innerHTML = '<option value="">Select your name…</option>' +
       r.names.map((n) => `<option value="${esc(n.name)}" ${n.joined ? 'disabled' : ''}>${esc(n.name)}${n.joined ? ' (already in)' : ''}</option>`).join('') +
       '<option value="__add">➕ My name isn’t here</option>';
     if ([...$('who').options].some((o) => o.value === cur && !o.disabled)) $('who').value = cur;
+    comboLabel();
+    if (!$('comboPanel').classList.contains('hidden')) renderCombo(); // keeps search text and focus
   } catch {}
 }
 async function refreshStatus() {
