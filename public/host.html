@@ -51,6 +51,14 @@
   .drv .x { position: absolute; top: 4px; right: 6px; color: var(--mist); opacity: 0; font-size: 14px; }
   .drv:hover .x { opacity: 1; } .drv .x:hover { color: var(--signal-hi); }
   @keyframes drvIn { from { opacity: 0; translate: 0 18px; } }
+  .top5 { grid-template-columns: repeat(5, 1fr); gap: 26px 18px; padding: 16px 6px 10px; }
+  .top5 .drv .pts { margin-left: auto; font-weight: 900; font-style: italic; font-size: 22px; color: var(--yellow); }
+  .top5:empty { display: none; }
+  .restTbl { width: 100%; border-collapse: collapse; margin-top: 34px; }
+  .restTbl th { text-align: left; color: var(--mist); font-size: 13px; font-weight: 700; padding: 6px 10px; }
+  .restTbl td { padding: 6px 10px; border-top: 1px solid var(--edge); font-weight: 600; font-size: 17px; }
+  .restTbl .x { background: none; border: 0; color: var(--mist); cursor: pointer; font-size: 14px; } .restTbl .x:hover { color: var(--signal-hi); }
+  .restTbl .tag { color: var(--yellow); font-size: 13px; }
   .pending { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--edge); }
   .pending .k { width: 100%; font-size: 16px; font-weight: 700; color: var(--mist); margin-bottom: 4px; }
   .pending span { padding: 6px 14px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--edge-hi); color: #c9d2e0; font-weight: 600; font-size: 15px; }
@@ -200,6 +208,7 @@
       <div class="panel drivers">
         <h3>Starting grid <small id="drvSub"></small></h3>
         <div class="grid-drivers" id="drivers"></div>
+        <div id="driversRest"></div>
         <div class="pending" id="pending"></div>
       </div>
       <div class="panel start-zone">
@@ -221,6 +230,7 @@
   <section class="view" id="vLive">
     <div class="ticker"><div id="tickerText"></div></div>
     <div class="stages" id="stages"></div>
+    <div class="grid-drivers top5" id="top5"></div>
     <div class="live-grid">
       <div class="panel board"><h3>Live timing</h3><table><thead><tr><th>Pos</th><th>Driver</th><th>Now on</th><th>Progress</th><th class="num">Logos</th><th class="num">Parts</th><th class="num">Movie</th><th class="num">Gap</th><th class="num">Points</th></tr></thead><tbody id="rows"></tbody></table></div>
       <div class="side">
@@ -301,12 +311,16 @@ function renderLobby(d) {
   const key = lb.map((p) => p.id + p.emoji).join() + '|' + d.pending.join();
   if (key === driversKey) return;
   driversKey = key;
-  $('drivers').innerHTML = lb.length
-    ? lb.slice().sort((a, b) => a.joinedAt - b.joinedAt).map((p) => `<div class="drv"><span class="avatar">${esc(p.emoji)}</span><div><div class="nm">${esc(p.name)}</div>${p.custom ? '<div class="tag">✨ added themselves</div>' : ''}</div><button class="x" data-kick="${p.id}" title="Remove">✕</button></div>`).join('')
-    : '<div class="empty">Waiting for the first driver to scan the code</div>';
+  const byJoin = lb.slice().sort((a, b) => a.joinedAt - b.joinedAt);
+  const card = (p) => `<div class="drv"><span class="avatar">${esc(p.emoji)}</span><div><div class="nm">${esc(p.name)}</div>${p.custom ? '<div class="tag">✨ added themselves</div>' : ''}</div><button class="x" data-kick="${p.id}" title="Remove">✕</button></div>`;
+  $('drivers').innerHTML = lb.length ? byJoin.slice(0, 5).map(card).join('') : '<div class="empty">Waiting for the first driver to scan the code</div>';
+  const rest = byJoin;
+  $('driversRest').innerHTML = rest.length
+    ? `<table class="restTbl"><thead><tr><th>Pos</th><th>Driver</th><th></th></tr></thead><tbody>${rest.map((p, i) => `<tr><td>P${i + 1}</td><td><div class="who"><span class="stripe" style="background:${teamColor(p.name)}"></span><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}${p.custom ? ' <span class="tag">✨</span>' : ''}</div></td><td class="num"><button class="x" data-kick="${p.id}" title="Remove">✕</button></td></tr>`).join('')}</tbody></table>`
+    : '';
   $('pending').innerHTML = d.pending.length ? `<div class="k">Yet to join (${d.pending.length})</div>` + d.pending.map((n) => `<span>${esc(n)}</span>`).join('') : (d.rosterSize ? '<div class="k" style="color:var(--green)">Everyone on the list is on the grid ✓</div>' : '');
 }
-$('drivers').addEventListener('click', async (e) => {
+document.querySelector('.drivers').addEventListener('click', async (e) => {
   const id = e.target.dataset.kick; if (!id) return;
   if (!(await GP.ask('Remove this driver?', 'They can join again from their phone.', 'Remove'))) return;
   await api('/api/host/players/' + id, { method: 'DELETE' }).catch((err) => GP.toast(err.message, 'red'));
@@ -387,6 +401,7 @@ function renderLive(d) {
   const tile = (k, v, ico, color) => `<div class="panel stg"><span class="ico">${ico}</span><div class="k">${k}</div><b>${v}</b><div class="bar"><i style="width:${100 * v / total}%;background:${color}"></i></div></div>`;
   $('stages').innerHTML = tile('Badge hunt', c.logo, '🏷️', 'var(--signal)') + tile('Parts hunt', c.parts, '🔧', 'var(--yellow)') + tile('Movie shuffle', c.movie, '🎬', 'var(--cyan)') + tile('Finished', c.done, '🏁', 'var(--green)') + tile('Yet to join', d.pending.length, '⏳', 'var(--mist)');
   const lead = lb.length ? lb[0].score : 0;
+  $('top5').innerHTML = lb.slice(0, 5).map((p) => `<div class="drv"><span class="avatar">${esc(p.emoji)}</span><div><div class="nm">${esc(p.name)}</div></div><span class="pts">${p.score}</span></div>`).join('');
   $('rows').innerHTML = lb.map((p) => `<tr class="p${p.rank}"><td>${p.rank}</td><td><div class="who"><span class="stripe" style="background:${teamColor(p.name)}"></span><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}</div></td>
     <td>${stageLabel(p, n)}</td><td><div class="prog"><i style="width:${(100 * Math.min(p.step, steps) / steps).toFixed(0)}%"></i></div></td>
     <td class="num">${p.logos}/${n}</td><td class="num">${p.parts}</td><td class="num">${p.movie ? '✓' : '–'}</td><td class="num gap">${p.rank === 1 ? 'Leader' : `−${lead - p.score}`}</td><td class="num score">${p.score}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No drivers yet</td></tr>';
