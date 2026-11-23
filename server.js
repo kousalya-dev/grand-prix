@@ -1,5 +1,5 @@
 // GRAND PRIX — a car-themed team game.
-// Round 1: name the car from its logo (10 × 30s) · Round 2: find car parts in a 9×9 grid (60s)
+// Round 1: name the car from its logo (10 × 30s) · Round 2: find car parts in a 9×9 grid (90s)
 // Round 3: rearrange the shuffled movie title (60s).
 // Local: npm start (data in ./data) · Vercel: zero-config Express + Upstash Redis
 const express = require('express');
@@ -14,7 +14,7 @@ const C = require('./lib/content');
 const PORT = Number(process.env.PORT) || 3000;
 const T = {
   logo: (Number(process.env.LOGO_TIME) || 30) * 1000,
-  parts: (Number(process.env.PARTS_TIME) || 60) * 1000,
+  parts: (Number(process.env.PARTS_TIME) || 90) * 1000,
   movie: (Number(process.env.MOVIE_TIME) || 60) * 1000,
 };
 const HINT_AFTER = 15000; // logo hint (first letter) unlocks after 15s
